@@ -13,6 +13,9 @@ Options:
   --threads N          Number of threads to pass to server (default: 8)
   --api-key KEY        API key (default: sk-local-coding)
   --llama-server PATH  Path to llama-server binary (default: ./llama-b9058-vulcan/llama-server)
+                                 If not provided the script will search for a folder
+                                 starting with `llama-` in the project root and use
+                                 its `llama-server` binary if found.
   --max-depth N        Max search depth for find (default: 3)
   --force              Overwrite existing scripts
   --dry-run            Print actions but don't write files
@@ -49,6 +52,22 @@ while [ "$#" -gt 0 ]; do
 done
 
 mkdir -p "$OUT_DIR"
+
+# Auto-detect a llama-* folder in the project root and use its llama-server binary
+# if the configured LLAMA_SERVER does not exist or is not executable.
+if [ ! -x "$LLAMA_SERVER" ]; then
+  for d in ./llama-*; do
+    if [ -d "$d" ]; then
+      cand="$d/llama-server"
+      if [ -x "$cand" ] || [ -f "$cand" ]; then
+        LLAMA_SERVER="$cand"
+        break
+      fi
+    fi
+  done
+fi
+
+echo "Using llama server: $LLAMA_SERVER"
 
 tmpfile=$(mktemp)
 trap 'rm -f "$tmpfile"' EXIT
@@ -101,12 +120,63 @@ for file in "${files_sorted[@]}"; do
 
   cat >"$script" <<EOF
 #!/bin/bash
+usage() {
+  cat <<USAGE
+Usage: $0 [--help|-h] [--stop]
+
+Options:
+  --help, -h   Show this help
+  --stop       Stop any running llama-server using port ${PORT}
+If no option is provided the script starts the server in the foreground.
+USAGE
+}
+
+if [ "\${1-}" = "--help" ] || [ "\${1-}" = "-h" ]; then
+  usage
+  exit 0
+fi
+
+if [ "\${1-}" = "--stop" ]; then
+  echo "Stopping server on port ${PORT}..."
+  # Find processes that include the port flag for this server invocation
+  pids=\$(pgrep -f "llama-server .*--port ${PORT}" || true)
+  if [ -z "\$pids" ]; then
+    echo "No running process found for port ${PORT}"
+    exit 0
+  fi
+  echo "Killing: \$pids"
+  echo "\$pids" | xargs -r kill
+  exit 0
+fi
+
+# Determine threads: allow --threads parameter, otherwise compute from CPU layout
+THREADS_ARG=""
+while [ "\$#" -gt 0 ]; do
+  case "\$1" in
+    --threads)
+      THREADS_ARG="\$2"
+      shift 2
+      ;;
+    --help|-h|--stop)
+      # handled above; consume and continue
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [ -z "\$THREADS_ARG" ]; then
+  THREADS_ARG=\$(($(lscpu -p | grep -v '^#' | sort -u -t, -k 2,4 | wc -l)-1))
+fi
+
 # Pin to first 12 physical cores for performance
 taskset -c 0-11 ${LLAMA_SERVER} -m ./${rel_model} \\
     --port ${PORT} \\
-    --ngl 99 \\
-    --fa on \\
-    --threads ${THREADS} \\
+    -ngl 99 \\
+    -fa on \\
+    --threads \${THREADS_ARG} \\
     --batch-size 1024 \\
     --ubatch-size 256 \\
     --ctx-size 16384 \\

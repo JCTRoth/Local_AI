@@ -22,7 +22,10 @@
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode
 
+#
 # Custom ignores for Local AI project
+#
+
 .cache/
 .run/
 .claw/
@@ -33,3 +36,6 @@ models/
 # Ignore your custom local execution scripts
 # (This matches your run_*.sh pattern)
 run_*.sh
+
+# Variable llama program folder
+/llama-*/
