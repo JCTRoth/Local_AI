@@ -35,6 +35,16 @@ FORCE=false
 DRY_RUN=false
 MIN_SIZE_BYTES=10485760
 
+# Sampling/default parameters (can be set on generator CLI and will be injected
+# as defaults into each generated run_*.sh script)
+TEMP=""
+TOP_K=""
+TOP_P=""
+MIN_P=""
+SAMPLERS=""
+N_PREDICT=""
+TYP_P=""
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --model-root) MODEL_ROOT="$2"; shift 2;;
@@ -44,6 +54,13 @@ while [ "$#" -gt 0 ]; do
     --api-key) API_KEY="$2"; shift 2;;
     --llama-server) LLAMA_SERVER="$2"; shift 2;;
     --max-depth) MAX_DEPTH="$2"; shift 2;;
+      --temp) TEMP="$2"; shift 2;;
+      --top-k) TOP_K="$2"; shift 2;;
+      --top-p) TOP_P="$2"; shift 2;;
+      --min-p) MIN_P="$2"; shift 2;;
+      --samplers) SAMPLERS="$2"; shift 2;;
+      --n-predict) N_PREDICT="$2"; shift 2;;
+      --typ_p) TYP_P="$2"; shift 2;;
     --force) FORCE=true; shift;;
     --dry-run) DRY_RUN=true; shift;;
     -h|--help) usage; exit 0;;
@@ -118,6 +135,16 @@ for file in "${files_sorted[@]}"; do
     continue
   fi
 
+  # Prepare sampling/default assignments to inject into generated script
+  if [ -n "$TEMP" ]; then TEMP_ASSIGN="TEMP_ARG=\"$TEMP\""; else TEMP_ASSIGN='TEMP_ARG=""'; fi
+  if [ -n "$TOP_K" ]; then TOP_K_ASSIGN="TOP_K_ARG=\"$TOP_K\""; else TOP_K_ASSIGN='TOP_K_ARG=""'; fi
+  if [ -n "$TOP_P" ]; then TOP_P_ASSIGN="TOP_P_ARG=\"$TOP_P\""; else TOP_P_ASSIGN='TOP_P_ARG=""'; fi
+  if [ -n "$MIN_P" ]; then MIN_P_ASSIGN="MIN_P_ARG=\"$MIN_P\""; else MIN_P_ASSIGN='MIN_P_ARG=""'; fi
+  if [ -n "$SAMPLERS" ]; then SAMPLERS_ASSIGN="SAMPLERS_ARG='${SAMPLERS}'"; else SAMPLERS_ASSIGN='SAMPLERS_ARG=""'; fi
+  if [ -n "$N_PREDICT" ]; then N_PREDICT_ASSIGN="N_PREDICT_ARG=\"$N_PREDICT\""; else N_PREDICT_ASSIGN='N_PREDICT_ARG=""'; fi
+  if [ -n "$TYP_P" ]; then TYP_P_ASSIGN="TYP_P_ARG=\"$TYP_P\""; else TYP_P_ASSIGN='TYP_P_ARG=""'; fi
+  THREADS_ASSIGN="THREADS_ARG=\"$THREADS\""
+
   cat >"$script" <<EOF
 #!/bin/bash
 usage() {
@@ -149,39 +176,78 @@ if [ "\${1-}" = "--stop" ]; then
   exit 0
 fi
 
-# Determine threads: allow --threads parameter, otherwise compute from CPU layout
-THREADS_ARG=""
-while [ "\$#" -gt 0 ]; do
-  case "\$1" in
-    --threads)
-      THREADS_ARG="\$2"
-      shift 2
-      ;;
-    --help|-h|--stop)
-      # handled above; consume and continue
-      shift
-      ;;
-    *)
-      shift
-      ;;
-  esac
-done
+  # Inject generator-provided sampling defaults (values expanded at generation time)
+  $TEMP_ASSIGN
+  $TOP_K_ASSIGN
+  $TOP_P_ASSIGN
+  $MIN_P_ASSIGN
+  $SAMPLERS_ASSIGN
+  $N_PREDICT_ASSIGN
+  $TYP_P_ASSIGN
 
-if [ -z "\$THREADS_ARG" ]; then
-  THREADS_ARG=\$(($(lscpu -p | grep -v '^#' | sort -u -t, -k 2,4 | wc -l)-1))
-fi
+  # Pre-populate THREADS_ARG from generator (--threads passed to generator)
+  $THREADS_ASSIGN
+
+  EXTRA_ARGS=()
+  while [ "\$#" -gt 0 ]; do
+    case "\$1" in
+      --threads)
+        THREADS_ARG="\$2"; shift 2;;
+      --temp|--temperature)
+        TEMP_ARG="\$2"; shift 2;;
+      --top-k)
+        TOP_K_ARG="\$2"; shift 2;;
+      --top-p)
+        TOP_P_ARG="\$2"; shift 2;;
+      --min-p)
+        MIN_P_ARG="\$2"; shift 2;;
+      --samplers)
+        SAMPLERS_ARG="\$2"; shift 2;;
+      --n-predict)
+        N_PREDICT_ARG="\$2"; shift 2;;
+      --typ_p)
+        TYP_P_ARG="\$2"; shift 2;;
+      --xtc_*)
+        EXTRA_ARGS+=("\$1" "\$2"); shift 2;;
+      --*)
+        if [ -n "\$2" ] && [ "\${2:0:1}" != "-" ]; then
+          EXTRA_ARGS+=("\$1" "\$2"); shift 2
+        else
+          EXTRA_ARGS+=("\$1"); shift
+        fi
+        ;;
+      *)
+        EXTRA_ARGS+=("\$1"); shift;;
+    esac
+  done
+
+  if [ -z "\$THREADS_ARG" ]; then
+    THREADS_ARG=\$(lscpu -p | grep -v '^#' | sort -u -t, -k 2,4 | wc -l)
+  fi
+
+  # Build sampling flags from variables
+  SAMPLING_FLAGS=""
+  if [ -n "\$TEMP_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --temp \$TEMP_ARG"; fi
+  if [ -n "\$TOP_K_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --top-k \$TOP_K_ARG"; fi
+  if [ -n "\$TOP_P_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --top-p \$TOP_P_ARG"; fi
+  if [ -n "\$MIN_P_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --min-p \$MIN_P_ARG"; fi
+  if [ -n "\$SAMPLERS_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --samplers '\$SAMPLERS_ARG'"; fi
+  if [ -n "\$N_PREDICT_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --n-predict \$N_PREDICT_ARG"; fi
+  if [ -n "\$TYP_P_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --typ_p \$TYP_P_ARG"; fi
 
 # Pin to first 12 physical cores for performance
 taskset -c 0-11 ${LLAMA_SERVER} -m ./${rel_model} \\
-    --port ${PORT} \\
-    -ngl 99 \\
-    -fa on \\
-    --threads \${THREADS_ARG} \\
-    --batch-size 1024 \\
-    --ubatch-size 256 \\
-    --ctx-size 16384 \\
-    --mlock \\
-    --api-key ${API_KEY}
+  --port ${PORT} \\
+  -ngl 99 \\
+  -fa on \\
+  --threads \${THREADS_ARG} \\
+  --batch-size 1024 \\
+  --ubatch-size 256 \\
+  --ctx-size 16384 \\
+  --mlock \\
+  \${SAMPLING_FLAGS} \\
+  "\${EXTRA_ARGS[@]}" \\
+  --api-key ${API_KEY}
 EOF
 
   chmod +x "$script"
