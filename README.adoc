@@ -1,0 +1,158 @@
+= Local AI Setup Guide: Llama.cpp & Claw
+:toc: left
+:source-highlighter: highlight.js
+:icons: font
+
+This guide covers the installation, model acquisition, and execution of local LLMs using `llama.cpp` and the `claw-code` tool on Ubuntu, optimized for hardware like the Ryzen AI 9 HX-370.
+
+== 1. Prerequisites & Installation
+
+First, ensure the system is up-to-date and install the necessary build tools and dependencies.
+
+[source,bash]
+----
+# Update system and install build tools
+sudo apt update && sudo apt install -y \
+    build-essential \
+    cmake \
+    git \
+    git-lfs \
+    python3-pip
+
+# Install Hugging Face CLI for model management
+pip install huggingface_hub --break-system-packages
+----
+
+=== Hugging Face Authentication
+To download gated models or use private settings, authenticate with your token:
+[source,bash]
+----
+# Get token from: https://huggingface.co/settings/tokens
+huggingface-cli login
+----
+
+== 2. Model Downloads
+
+We use GGUF formatted models for compatibility with `llama.cpp`.
+
+You can click "Copy modle name to clipboard" and download it with the scripts/download_models.sh script, or use the Hugging Face CLI directly:
+
+[source,bash]
+----
+./scripts/download_models.sh unsloth/Phi-4-mini-instruct-GGUF
+----
+
+Or use the Hugging Face CLI directly to specify models and output directories:
+
+[source,bash]
+----
+# Qwen 3.5 9B (General Purpose)
+huggingface-cli download unsloth/Qwen3.5-9B-GGUF \
+    Qwen3.5-9B-Q6_K.gguf --local-dir ./models/qwen3.5-9b
+----
+
+
+Here are some modles that you can use on a local PC, less b(billion parameters) means smaller model size::
+
+(08.May.2026)
+
+=== Coding models
+
+unsloth/Qwen3.5-4B-GGUF
+
+bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF
+
+=== Code completion models
+
+Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF
+
+bartowski/Qwen_Qwen3.5-0.8B-GGUF
+
+=== General purpose models
+
+unsloth/Phi-4-mini-reasoning-GGUF
+
+unsloth/gemma-4-E2B-it-GGUF
+
+=== Good sources for more models
+
+https://huggingface.co/unsloth/
+
+https://huggingface.co/bartowski
+
+
+== 3. Running Llama.cpp
+
+=== CLI Test Mode
+Run a quick test to ensure Vulkan acceleration is working on your Ryzen AI chip.
+
+Run the **./scripts/generate_start_scripts.sh** script to create start scripts for your downloaded models, then execute one of the generated scripts. The output script will look something like this, if you not have vulkan you can remove the --vulkan flag and run it on CPU, but performance will be much slower.
+
+[source,bash]
+----
+./build/bin/llama-cli \
+  -m ./models/qwen3.5-9b/Qwen3.5-9B-Q6_K.gguf \
+  --vulkan \
+  -ngl 99 \
+  -p "Hallo! Du läufst gerade auf einem Ryzen AI 9 HX-370 unter Ubuntu. Stell dich kurz vor." \
+  -n 512
+----
+
+=== Server Mode
+Start the OpenAI-compatible API server.
+
+[source,bash]
+----
+./llama-server \
+    -m ./models/qwen3.5-9b/Qwen3.5-9B-Q6_K.gguf \
+    --port 8080 \
+    -ngl 100 \
+    -fa on \
+    -c 32768 \
+    --threads 8 \
+    --api-key sk-local-coding
+----
+
+=== Verify API Connectivity
+[source,bash]
+----
+curl -X POST http://127.0.0.1:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-local-coding" \
+  -d '{
+    "model": "qwen3-local",
+    "messages": [{"role": "user", "content": "say hello"}],
+    "max_tokens": 50
+  }'
+----
+
+== 4. Claw Code Tooling
+
+`Claw` acts as a bridge for coding tasks using your local API.
+
+=== Build
+[source,bash]
+----
+cd claw-code/
+./install.sh --release
+----
+
+=== Configuration & Execution
+Ensure the binary exists at `rust/target/release/claw`, then export your environment variables.
+
+[source,bash]
+----
+export OPENAI_BASE_URL="http://127.0.0.1:8080/v1"
+export OPENAI_API_KEY="sk-local-coding"
+
+# Check status
+./target/release/claw --model openai/qwen3-local doctor
+
+# Run a prompt
+./target/release/claw --model openai/qwen3-local prompt "Write a rust function to sort a list."
+----
+
+[TIP]
+====
+Add the `export` lines to your `.bashrc` or `.zshrc` to make them persistent across sessions.
+====
