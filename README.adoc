@@ -119,6 +119,12 @@ curl -X POST http://127.0.0.1:8080/v1/chat/completions \
   }'
 ----
 
+=== Web Interface
+Open http://127.0.0.1:8082/ in your browser to access the web interface for testing and interacting with your local LLM.
+Enter the key `sk-local-coding`
+You will be presented with a sufisticated web interface to interact with your local LLM, test prompts, and view responses in real-time,
+ChatGpt style with more advanced features like system settings.
+
 == 4. Claw Code Tooling
 
 `Claw` acts as a bridge for coding tasks using your local API.
