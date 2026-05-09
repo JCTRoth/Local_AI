@@ -84,7 +84,18 @@ if [ ! -x "$LLAMA_SERVER" ]; then
   done
 fi
 
-echo "Using llama server: $LLAMA_SERVER"
+# Record an absolute form of the detected LLAMA_SERVER for embedding into
+# generated scripts. The generated scripts will still attempt to find a
+# runnable llama-server at runtime if this embedded path is not valid.
+if command -v realpath >/dev/null 2>&1; then
+  LLAMA_SERVER_ABS=$(realpath "$LLAMA_SERVER" 2>/dev/null || printf "%s" "$LLAMA_SERVER")
+elif command -v readlink >/dev/null 2>&1; then
+  LLAMA_SERVER_ABS=$(readlink -f "$LLAMA_SERVER" 2>/dev/null || printf "%s" "$LLAMA_SERVER")
+else
+  LLAMA_SERVER_ABS="$LLAMA_SERVER"
+fi
+
+echo "Using llama server: $LLAMA_SERVER_ABS"
 
 tmpfile=$(mktemp)
 trap 'rm -f "$tmpfile"' EXIT
@@ -118,8 +129,10 @@ for file in "${files_sorted[@]}"; do
   script="$OUT_DIR/run_${safe}.sh"
 
   if command -v realpath >/dev/null 2>&1; then
+    abs_model=$(realpath "$file" 2>/dev/null || printf "%s" "$file")
     rel_model=$(realpath --relative-to="$OUT_DIR" "$file" 2>/dev/null || printf "%s" "$file")
   else
+    abs_model="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
     rel_model="$file"
   fi
 
@@ -273,9 +286,48 @@ fi
     fi
   fi
 
-# Pin to first 12 physical cores for performance
-taskset -c 0-11 ${LLAMA_SERVER} -m ./${rel_model} \\
-  --port ${PORT} \\
+  # Determine llama-server at runtime so the script can be invoked from anywhere.
+  SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+  EMBEDDED_LLAMA_SERVER="${LLAMA_SERVER_ABS}"
+  MODEL_PATH="${abs_model}"
+
+  find_llama_server() {
+    if [ -n "\$EMBEDDED_LLAMA_SERVER" ]; then
+      if [ -x "\$EMBEDDED_LLAMA_SERVER" ]; then
+        printf "%s" "\$EMBEDDED_LLAMA_SERVER"
+        return 0
+      fi
+      if [ -x "\$SCRIPT_DIR/\$EMBEDDED_LLAMA_SERVER" ]; then
+        printf "%s" "\$SCRIPT_DIR/\$EMBEDDED_LLAMA_SERVER"
+        return 0
+      fi
+    fi
+    cur="\$SCRIPT_DIR"
+    while [ "\$cur" != "/" ] && [ -n "\$cur" ]; do
+      for d in "\$cur"/llama-*; do
+        if [ -x "\$d/llama-server" ]; then
+          printf "%s" "\$d/llama-server"
+          return 0
+        fi
+      done
+      cur="\$(dirname "\$cur")"
+    done
+    if command -v llama-server >/dev/null 2>&1; then
+      command -v llama-server
+      return 0
+    fi
+    return 1
+  }
+
+  LLAMA_SERVER_RUNTIME="\$(find_llama_server || true)"
+  if [ -z "\$LLAMA_SERVER_RUNTIME" ]; then
+    echo "Error: llama-server executable not found. Please build it or set the path."
+    exit 1
+  fi
+
+  # Pin to first 12 physical cores for performance
+  taskset -c 0-11 "\$LLAMA_SERVER_RUNTIME" -m "${abs_model}" \\
+    --port ${PORT} \\
   -ngl 99 \\
   -fa on \\
   --threads \${THREADS_ARG} \\
