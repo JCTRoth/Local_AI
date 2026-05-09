@@ -201,3 +201,54 @@ Run a prompt
 ----
 
 Add the `export` lines to your `.bashrc` or `.zshrc` to make them persistent across sessions.
+
+== Continue setup
+
+Continue is a VScode extentation that provides a Copilot like experience. I recoment to use for the main AI a API Key form open router and for the autocomplete IBMs Granite models.
+
+In this example I started two local models from the 
+starter_scripts path.
+[source,yaml]
+----
+name: My Config
+version: 1.0.0
+schema: v1
+
+
+models:
+  - name: Granite Chat
+    provider: openai
+    model: main_model
+    apiBase: http://127.0.0.1:8080/v1
+    apiKey: sk-local-coding
+    roles:
+      - chat
+      - edit
+      - apply
+      - subagent
+
+  - name: Qwen Autocomplete
+    provider: openai
+    model: autocomplete_model
+    apiBase: http://127.0.0.1:8081/v1
+    apiKey: sk-local-coding
+    roles:
+      - autocomplete
+
+mcpServers:
+  - name: memory
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-memory"
+
+  - name: filesystem
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - "."
+
+----
+
+No matter wich script you now start form the script folder, continue will directly start to use it.
