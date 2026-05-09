@@ -43,7 +43,7 @@ while [ "${#}" -gt 0 ]; do
       # Forward unknown options to the underlying generator (except --port-start)
       if [ "${1#--}" != "$1" ]; then
         # option-like
-        if [ "$2" ] && [ "${2:0:1}" != "-" ]; then
+        if [ -n "${2-}" ] && [ "${2:0:1}" != "-" ]; then
           GENERATOR_EXTRA+=("$1" "$2"); shift 2
         else
           GENERATOR_EXTRA+=("$1"); shift
@@ -80,7 +80,13 @@ for i in "${!CATEGORIES[@]}"; do
   CATEGORY_OUT_DIR="$OUT_DIR/starter_scripts/$cat_name"
   mkdir -p "$CATEGORY_OUT_DIR"
 
-  echo "Generating scripts for category '$cat_name' (model root: $model_root) -> port $port"
+  echo "════════════════════════════════════════════════════════════"
+  echo "Generating scripts for category: $cat_name"
+  echo "  Model root: $model_root"
+  echo "  Output folder: $CATEGORY_OUT_DIR"
+  echo "  Port: $port"
+  echo "  Category Alias: $cat_name"
+  echo "════════════════════════════════════════════════════════════"
 
   cmd=(bash "$GENERATOR" --model-root "$model_root" --out-dir "$CATEGORY_OUT_DIR" --port-start "$port" --threads "$THREADS" --api-key "$API_KEY" --max-depth "$MAX_DEPTH")
   if [ "$FORCE" = true ]; then

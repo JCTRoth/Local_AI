@@ -201,6 +201,26 @@ if [ "\${1-}" = "--stop" ]; then
   exit 0
 fi
 
+  # Determine category alias from current working directory (PWD).
+  CANDIDATES=("autocomplete_model" "main_model" "rerank_model")
+  CATEGORY_ALIAS=""
+  for c in "\${CANDIDATES[@]}"; do
+    if [[ "\$PWD" == *"/\$c"* ]] || [[ "\$(basename "\$PWD")" == "\$c" ]]; then
+      CATEGORY_ALIAS="\$c"
+      break
+    fi
+  done
+
+  if [ -n "\$CATEGORY_ALIAS" ]; then
+    echo "Detected category alias from PWD: \$CATEGORY_ALIAS"
+    # Set shell alias for this category so you can invoke by category name
+    alias \$CATEGORY_ALIAS="\$0"
+    echo "Created alias: \$CATEGORY_ALIAS -> \$0"
+  else
+    echo "Warning: current working directory does not contain any of: \${CANDIDATES[*]}. CATEGORY_ALIAS will be empty." >&2
+    CATEGORY_ALIAS=""
+  fi
+
   # Inject generator-provided sampling defaults (values expanded at generation time)
   $TEMP_ASSIGN
   $TOP_K_ASSIGN
@@ -339,9 +359,16 @@ fi
     exit 1
   fi
 
+  # Build alias flag from category if detected
+  ALIAS_FLAG=""
+  if [ -n "\$CATEGORY_ALIAS" ]; then
+    ALIAS_FLAG="--alias \$CATEGORY_ALIAS"
+  fi
+
   # Pin to first 12 physical cores for performance
   taskset -c 0-11 "\$LLAMA_SERVER_RUNTIME" -m "${abs_model}" \\
     --port ${PORT} \\
+    \${ALIAS_FLAG} \\
   -ngl 99 \\
   -fa on \\
   --threads \${THREADS_ARG} \\
