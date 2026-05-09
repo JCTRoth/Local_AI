@@ -122,7 +122,21 @@ PORT=${PORT_START}
 for file in "${files_sorted[@]}"; do
   base=$(basename -- "$file")
   name=${base%.*}
-  safe=$(echo "$name" | tr -cs '[:alnum:]' '_' | tr '[:upper:]' '[:lower:]')
+  dir=$(dirname -- "$file")
+  # Prefer the top-level folder name under MODEL_ROOT as the script name (e.g. "autocomplete_model")
+  if command -v realpath >/dev/null 2>&1; then
+    rel_dir=$(realpath --relative-to="$MODEL_ROOT" "$dir" 2>/dev/null || printf "%s" "$dir")
+  else
+    case "$dir" in
+      "$MODEL_ROOT"|"${MODEL_ROOT}/"*) rel_dir="${dir#$MODEL_ROOT/}" ;;
+      *) rel_dir="$dir" ;;
+    esac
+  fi
+  category=$(printf "%s" "$rel_dir" | cut -d/ -f1)
+  if [ -z "$category" ] || [ "$category" = "." ]; then
+    category=$(basename -- "$dir")
+  fi
+  safe=$(echo "$category" | tr -cs '[:alnum:]_' '_' | tr '[:upper:]' '[:lower:]')
   safe=${safe##_}
   safe=${safe%%_}
   [ -z "$safe" ] && safe='model'
