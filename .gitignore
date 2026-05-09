@@ -29,7 +29,7 @@
 .cache/
 .run/
 .claw/
-models/
+# models/
 # Ignore large model files
 *.gguf
 
@@ -39,3 +39,5 @@ run_*.sh
 
 # Variable llama program folder
 /llama-*/
+
+.continue/

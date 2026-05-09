@@ -125,13 +125,11 @@ for file in "${files_sorted[@]}"; do
 
   if [ "$DRY_RUN" = true ]; then
     echo "Would write: $script -> $rel_model (port $PORT)"
-    PORT=$((PORT + 1))
     continue
   fi
 
   if [ -e "$script" ] && [ "$FORCE" != true ]; then
     skipped+=("$script")
-    PORT=$((PORT + 1))
     continue
   fi
 
@@ -235,6 +233,46 @@ fi
   if [ -n "\$N_PREDICT_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --n-predict \$N_PREDICT_ARG"; fi
   if [ -n "\$TYP_P_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --typ_p \$TYP_P_ARG"; fi
 
+  # First, check the common admin port 127.0.0.1:8080 (e.g. Continue/dashboard or proxy).
+  # If a service responds there, abort to avoid starting/loading models while another
+  # server is active on that admin port.
+  if command -v curl >/dev/null 2>&1; then
+    if curl -s --connect-timeout 2 "http://127.0.0.1:8080" >/dev/null 2>&1; then
+      echo "Error: Detected existing HTTP service at http://127.0.0.1:8080. Not starting the model to avoid conflicts."
+      exit 1
+    fi
+  elif command -v nc >/dev/null 2>&1; then
+    if nc -z 127.0.0.1 8080 >/dev/null 2>&1; then
+      echo "Error: Detected listening service on port 8080. Not starting the model to avoid conflicts."
+      exit 1
+    fi
+  else
+    if (echo > /dev/tcp/127.0.0.1/8080) >/dev/null 2>&1; then
+      echo "Error: Port 8080 appears to be in use. Not starting the model."
+      exit 1
+    fi
+  fi
+
+  # Check if an HTTP server is already responding on this script's target port (127.0.0.1:${PORT}).
+  # If so, do not start the model to avoid accidental double-binding or conflicts.
+  if command -v curl >/dev/null 2>&1; then
+    if curl -s --connect-timeout 2 "http://127.0.0.1:${PORT}" >/dev/null 2>&1; then
+      echo "Error: HTTP server detected at http://127.0.0.1:${PORT}. Not starting the model to avoid conflicts."
+      exit 1
+    fi
+  elif command -v nc >/dev/null 2>&1; then
+    if nc -z 127.0.0.1 ${PORT} >/dev/null 2>&1; then
+      echo "Error: Port ${PORT} is already in use (listening). Not starting the model."
+      exit 1
+    fi
+  else
+    # Fallback using bash /dev/tcp
+    if (echo > /dev/tcp/127.0.0.1/${PORT}) >/dev/null 2>&1; then
+      echo "Error: Port ${PORT} appears to be in use. Not starting the model."
+      exit 1
+    fi
+  fi
+
 # Pin to first 12 physical cores for performance
 taskset -c 0-11 ${LLAMA_SERVER} -m ./${rel_model} \\
   --port ${PORT} \\
@@ -252,7 +290,6 @@ EOF
 
   chmod +x "$script"
   created+=("$script")
-  PORT=$((PORT + 1))
 done
 
 if [ "${#created[@]}" -gt 0 ]; then

@@ -1,0 +1,113 @@
+= Generate Start Scripts — Folder Layout & Usage
+
+This document explains the new `models/` folder layout and how the generator
+scripts work.
+
+== Folder Structure
+
+* `models/` — top-level models folder containing three categories (each may
+  contain multiple model subfolders):
+
+** `main_model`:: Primary models served on port `8080`.
+
+** `autocomplete_model`:: Autocomplete / smaller models served on port `8081`.
+
+** `rerank_model`:: Reranker models served on port `8082`.
+
+Each category folder is scanned recursively for `.gguf` files. For each found
+`.gguf` the generator creates a runtime starter script in the repository root
+named `run_<safe-name>.sh`.
+
+== Key scripts
+
+=== Generator: scripts/generate_start_scripts.sh
+
+*Purpose*:: Scans a `--model-root` tree for `.gguf` files and emits `run_*.sh`
+start scripts into `--out-dir`.
+
+*Important options*:: `--model-root`, `--out-dir`, `--port-start`, `--threads`,
+`--api-key`, `--llama-server`, `--max-depth`, `--force`, `--dry-run`.
+
+*Sampling / inference flags*:: The generator accepts and injects sampling
+defaults into generated scripts: `--temp`, `--top-k`, `--top-p`, `--min-p`,
+`--samplers`, `--n-predict`, `--typ_p` (plus passthrough for `--xtc_*`).
+
+Generated run scripts include runtime flag parsing so you can override sampling
+values at start-time. Each run script supports `--help` and `--stop`.
+
+*Safety*:: Generated run scripts perform two checks before loading a model:
+
+1. Probe `http://127.0.0.1:8080` (admin/proxy port). If a service responds,
+   the script aborts to avoid starting a model while an admin/proxy is running.
+2. Check the script's configured target port (e.g. `--port 8080`) for a
+   listening service; if the port is taken the script aborts.
+
+=== Category wrapper: scripts/generate_category_scripts.sh
+
+*Purpose*:: A convenience wrapper that invokes the generator per-category
+with a fixed port mapping:
+
+* `main_model` → `8080`
+* `autocomplete_model` → `8081`
+* `rerank_model` → `8082`
+
+*Wrapper options*:: `--models-root`, `--out-dir`, `--threads`, `--api-key`,
+`--no-force`, `--dry-run`, `--max-depth`.
+
+Any additional generator flags (sampling options, `--llama-server`, etc.) may
+be passed to the wrapper and will be forwarded to the generator. The wrapper
+intentionally ignores/overrides `--port-start` because it manages per-category
+ports itself.
+
+== Where output appears
+
+Generated run scripts are written to the repository root and are named like
+`run_<safe-name>.sh`. Example: `run_qwen3_5_9b_q6_k.sh`.
+
+== Quick examples
+
+[source,bash]
+----
+# Dry-run (show what would be created)
+./scripts/generate_category_scripts.sh --dry-run
+----
+
+[source,bash]
+----
+# Generate real scripts (inject API key)
+./scripts/generate_category_scripts.sh --api-key sk-local-coding
+----
+
+[source,bash]
+----
+# Forward sampling options via the wrapper (they are passed to generator)
+./scripts/generate_category_scripts.sh --temp 0.7 --top-k 10 --n-predict 512
+----
+
+[source,bash]
+----
+# Start a generated run script (examples)
+bash run_qwen3_5_9b_q6_k.sh --help
+bash run_qwen3_5_9b_q6_k.sh    # starts server (will abort if 127.0.0.1:8080 or script-port is in use)
+bash run_qwen3_5_9b_q6_k.sh --stop   # stops server started with that script's port
+----
+
+== Notes & tips
+
+* If you need to force-start despite an existing service on `127.0.0.1:8080`,
+  either stop that service or ask to add a `--force-start` runtime flag to the
+  generated scripts (I can add this on request).
+
+* The wrapper keeps per-category ports fixed by design. To change the mapping
+  edit `scripts/generate_category_scripts.sh` or call
+  `scripts/generate_start_scripts.sh` directly with a custom `--model-root`.
+
+== Files to review
+
+* `scripts/generate_category_scripts.sh`
+* `scripts/generate_start_scripts.sh`
+* Example generated scripts (root): `run_*.sh`
+
+----
+Created by automation — update this doc if you change generator behavior or
+port mapping.
