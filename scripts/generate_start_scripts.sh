@@ -123,24 +123,11 @@ for file in "${files_sorted[@]}"; do
   base=$(basename -- "$file")
   name=${base%.*}
   dir=$(dirname -- "$file")
-  # Prefer the top-level folder name under MODEL_ROOT as the script name (e.g. "autocomplete_model")
-  if command -v realpath >/dev/null 2>&1; then
-    rel_dir=$(realpath --relative-to="$MODEL_ROOT" "$dir" 2>/dev/null || printf "%s" "$dir")
-  else
-    case "$dir" in
-      "$MODEL_ROOT"|"${MODEL_ROOT}/"*) rel_dir="${dir#$MODEL_ROOT/}" ;;
-      *) rel_dir="$dir" ;;
-    esac
-  fi
-  category=$(printf "%s" "$rel_dir" | cut -d/ -f1)
-  if [ -z "$category" ] || [ "$category" = "." ]; then
-    category=$(basename -- "$dir")
-  fi
-  safe=$(echo "$category" | tr -cs '[:alnum:]_' '_' | tr '[:upper:]' '[:lower:]')
-  safe=${safe##_}
-  safe=${safe%%_}
-  [ -z "$safe" ] && safe='model'
-  script="$OUT_DIR/run_${safe}.sh"
+  # Always generate a unique script name based on the model file name
+  model_base=$(basename -- "$file")
+  model_name_noext="${model_base%.*}"
+  safe_model_name=$(echo "$model_name_noext" | tr -cs '[:alnum:]_-' '_' | tr '[:upper:]' '[:lower:]')
+  script="$OUT_DIR/start_${safe_model_name}.sh"
 
   if command -v realpath >/dev/null 2>&1; then
     abs_model=$(realpath "$file" 2>/dev/null || printf "%s" "$file")
