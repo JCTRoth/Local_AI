@@ -3,7 +3,14 @@
 :source-highlighter: highlight.js
 :icons: font
 
-This guide covers the installation, model acquisition, and execution of local LLMs using `llama.cpp` and the `claw-code` tool on Ubuntu, optimized for hardware like the Ryzen AI 9 HX-370.
+This guide covers the installation, model acquisition, and execution of local LLMs using `llama.cpp` and the `claw-code` tool on Ubuntu, optimized for hardware like the Ryzen AI 9 HX-370 on my Ubuntu based system.
+
+When using the scripts in the script folder and the from there generated starter scripts, you are able to start every model your PC can handle and can try out different models without changing the configuration of the tools.
+
+No matter wich script you now start form the script folder, continue will directly start to use it.
+
+
+
 
 == 1. Prerequisites & Installation
 
@@ -84,10 +91,22 @@ https://huggingface.co/lmstudio-community
 
 https://huggingface.co/bartowski
 
+https://huggingface.co/BAAI
+
 Very intressting MAMBA type models that not use transformers but still have good performance:
 https://huggingface.co/ibm-granite
 
 https://www.ibm.com/think/topics/mamba-model
+
+=== Type of Models/Agents used
+
+TBD
+
+
+Reranker
+
+https://huggingface.co/Mungert/Qwen3-Reranker-0.6B-GGUF/tree/main
+https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-api-rerank.html?context=wx
 
 == 3. Running Llama.cpp
 
@@ -204,10 +223,32 @@ Add the `export` lines to your `.bashrc` or `.zshrc` to make them persistent acr
 
 == Continue setup
 
-Continue is a VScode extentation that provides a Copilot like experience. I recoment to use for the main AI a API Key form open router and for the autocomplete IBMs Granite models.
+Continue is a VScode extentation that provides a Copilot like experience. I recoment to use for the main AI a API Key form open router and for the autocomplete IBMs Granite or smaal Qwen models.
 
 In this example I started two local models from the 
 starter_scripts path.
+
+
+TBD
+
+=== Local MCP Server's
+
+Chrome DevTools
+
+Sentry
+
+
+
+=== More MCP Servers
+
+Azure / Azure DevOps: Specialized servers for querying cloud resources, pipelines, and work items.
+
+Microsoft Learn MCP: Provides live access to official Microsoft documentation and SDKs.
+
+Playwright: Often built-in or easily added to provide browser automation, allowing Copilot to navigate pages and take screenshots for context.
+
+GitHub MCP Server: The primary built-in server that allows Copilot to manage issues, pull requests, and repository data directly from chat.
+
 [source,yaml]
 ----
 name: My Config
@@ -251,4 +292,6 @@ mcpServers:
 
 ----
 
-No matter wich script you now start form the script folder, continue will directly start to use it.
+== Using the NPU
+
+TBD

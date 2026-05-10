@@ -41,3 +41,4 @@ run_*.sh
 /llama-*/
 
 .continue/
+starter_scripts/

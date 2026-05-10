@@ -15,14 +15,14 @@ scripts work.
 ** `rerank_model`:: Reranker models served on port `8082`.
 
 Each category folder is scanned recursively for `.gguf` files. For each found
-`.gguf` the generator creates a runtime starter script in the repository root
-named `run_<safe-name>.sh`.
+`.gguf` the generator creates a runtime starter script in `starter_scripts/<category>/`
+named `start_<safe-name>.sh`.
 
 == Key scripts
 
 === Generator: scripts/generate_start_scripts.sh
 
-*Purpose*:: Scans a `--model-root` tree for `.gguf` files and emits `run_*.sh`
+*Purpose*:: Scans a `--model-root` tree for `.gguf` files and emits `start_*.sh`
 start scripts into `--out-dir`.
 
 *Important options*:: `--model-root`, `--out-dir`, `--port-start`, `--threads`,
@@ -61,8 +61,12 @@ ports itself.
 
 == Where output appears
 
-Generated run scripts are written to the repository root and are named like
-`run_<safe-name>.sh`. Example: `run_qwen3_5_9b_q6_k.sh`.
+Generated start scripts are organized by category under `starter_scripts/` and are
+named like `start_<safe-name>.sh`. Examples:
+
+* `starter_scripts/main_model/start_qwen3_5-9b-q6_k_.sh`
+* `starter_scripts/autocomplete_model/start_qwen2_5-coder-0_5b-instruct-fp16_.sh`
+* `starter_scripts/rerank_model/` (empty if no rerank models are available)
 
 == Quick examples
 
@@ -86,10 +90,10 @@ Generated run scripts are written to the repository root and are named like
 
 [source,bash]
 ----
-# Start a generated run script (examples)
-bash run_qwen3_5_9b_q6_k.sh --help
-bash run_qwen3_5_9b_q6_k.sh    # starts server (will abort if 127.0.0.1:8080 or script-port is in use)
-bash run_qwen3_5_9b_q6_k.sh --stop   # stops server started with that script's port
+# Start a generated start script (examples)
+bash starter_scripts/main_model/start_qwen3_5-9b-q6_k_.sh --help
+bash starter_scripts/main_model/start_qwen3_5-9b-q6_k_.sh    # starts server (will abort if 127.0.0.1:8080 or script-port is in use)
+bash starter_scripts/main_model/start_qwen3_5-9b-q6_k_.sh --stop   # stops server started with that script's port
 ----
 
 == Notes & tips
@@ -106,7 +110,7 @@ bash run_qwen3_5_9b_q6_k.sh --stop   # stops server started with that script's p
 
 * `scripts/generate_category_scripts.sh`
 * `scripts/generate_start_scripts.sh`
-* Example generated scripts (root): `run_*.sh`
+* Example generated scripts: `starter_scripts/main_model/start_*.sh`, `starter_scripts/autocomplete_model/start_*.sh`, etc.
 
 ----
 Created by automation — update this doc if you change generator behavior or
