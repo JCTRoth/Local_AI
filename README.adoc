@@ -249,6 +249,8 @@ Playwright: Often built-in or easily added to provide browser automation, allowi
 
 GitHub MCP Server: The primary built-in server that allows Copilot to manage issues, pull requests, and repository data directly from chat.
 
+=== Continue Configuration
+
 [source,yaml]
 ----
 name: My Config
@@ -294,4 +296,31 @@ mcpServers:
 
 == Using the NPU
 
-TBD
+[source,bash]
+----
+sudo add-apt-repository ppa:lemonade-team/stable
+sudo apt update
+sudo apt install libxrt-npu2 amdxdna-dkms
+----
+
+FastFlowLM
+Next, install the FastFlowLM package which provides the necessary tools and libraries to run LLMs on AMD hardware:
+https://github.com/FastFlowLM/FastFlowLM/releases
+OR
+
+sudo apt install cmake ninja-build git boost-dev libboost-all-dev
+
+
+
+[source,bash]
+----
+flm validate
+----
+
+If you want to use the AMD Chat UI Tool than:
+Download the DEB package for the NPU runtime from the AMD website and install it:
+https://github.com/amd/gaia/releases
+
+
+Reboot your system to apply the changes.
+
