@@ -296,6 +296,36 @@ mcpServers:
 
 == Using the NPU
 
+Install 
+
+[source,bash]
+----
+https://ryzenai.docs.amd.com/en/latest/linux.html
+----
+
+Find a model that is optimized for AMD hardware, unsing the ONNX format, and download it to your local machine. You can use the Hugging Face CLI or other tools to find and download compatible models.
+
+https://huggingface.co/models?other=ryzenai
+
+https://huggingface.co/models?library=onnx
+
+Convert models to ONNX format:
+
+https://github.com/onnx/onnx/blob/main/docs/VersionConverter.md
+
+
+Install Go-Lang than:
+----
+go install github.com/lemonade-command/lemonade@latest
+----
+
+pip install ryzenai
+
+
+rocm-smi
+
+
+
 [source,bash]
 ----
 sudo add-apt-repository ppa:lemonade-team/stable
