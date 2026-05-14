@@ -42,3 +42,5 @@ run_*.sh
 
 .continue/
 starter_scripts/
+source/
+models/!/npu/run_model.sh
