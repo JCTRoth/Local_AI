@@ -58,9 +58,11 @@ candidate_ryzen_ai_roots() {
 
     for candidate in \
         "${RYZEN_AI_INSTALLATION_PATH:-}" \
+        "$SCRIPT_DIR/../.deps/ryzenai-sdk/1.7.0" \
+        "$SCRIPT_DIR/../.deps/ryzenai-sdk" \
+        "$HOME/ryzen_ai_env" \
         /opt/ryzen_ai \
         /opt/ryzen_ai/venv \
-        "$HOME/ryzen_ai_env" \
         "$HOME/ryzen_ai" \
         "$HOME/.ryzen_ai"; do
         if [ -n "$candidate" ] && [ -d "$candidate" ]; then
@@ -83,12 +85,34 @@ configure_ryzen_ai_runtime_environment() {
     fi
 
     while IFS= read -r root; do
-        if [ -n "$root" ]; then
+        if [ -z "$root" ]; then
+            continue
+        fi
+
+        bin_dir=$(pick_first_existing_path "$root/bin" "$root/venv/bin" || true)
+        site_packages_dir=$(pick_first_existing_path \
+            "$root/lib64/python3.12/site-packages" \
+            "$root/lib/python3.12/site-packages" \
+            "$root/venv/lib64/python3.12/site-packages" \
+            "$root/venv/lib/python3.12/site-packages" || true)
+
+        provider_lib=''
+        if [ -d "$root/deployment/lib" ]; then
+            provider_lib=$(pick_first_existing_path \
+                "$root/deployment/lib/libonnxruntime_providers_ryzenai.so" || true)
+        fi
+        if [ -z "$provider_lib" ] && [ -n "$site_packages_dir" ]; then
+            provider_lib=$(pick_first_existing_path \
+                "$site_packages_dir/onnxruntime/capi/libonnxruntime_providers_ryzenai.so" || true)
+        fi
+
+        if [ -n "$provider_lib" ] && [ -f "$provider_lib" ]; then
             break
+    export RYZENAI_INSTALL_PATH="$root"
         fi
     done < <(candidate_ryzen_ai_roots)
 
-    if [ -z "$root" ]; then
+    if [ -z "$root" ] || [ -z "$provider_lib" ]; then
         log_msg WARN 'Ryzen AI model detected, but no local Ryzen AI runtime root was found.'
         log_msg INFO 'Looked for /opt/ryzen_ai and the user-level ryzen_ai_env installation.'
         return 0
@@ -97,18 +121,19 @@ configure_ryzen_ai_runtime_environment() {
     RYZEN_AI_RUNTIME_ROOT="$root"
     export RYZEN_AI_INSTALLATION_PATH="$root"
 
-    bin_dir=$(pick_first_existing_path "$root/bin" "$root/venv/bin" || true)
-    site_packages_dir=$(pick_first_existing_path \
-        "$root/lib64/python3.12/site-packages" \
-        "$root/lib/python3.12/site-packages" \
-        "$root/venv/lib64/python3.12/site-packages" \
-        "$root/venv/lib/python3.12/site-packages" || true)
-
     if [ -n "$bin_dir" ]; then
         path_entries+=("$bin_dir")
     fi
     if [ -n "$site_packages_dir" ] && [ -d "$site_packages_dir/bin" ]; then
         path_entries+=("$site_packages_dir/bin")
+    fi
+
+    if [ -d "$HOME/ryzen_ai_env/bin" ]; then
+        path_entries+=("$HOME/ryzen_ai_env/bin")
+    fi
+
+    if [ -d "$root/deployment/lib" ]; then
+        ld_entries+=("$root/deployment/lib")
     fi
 
     if [ -n "$site_packages_dir" ]; then
@@ -123,9 +148,26 @@ configure_ryzen_ai_runtime_environment() {
         fi
     fi
 
+    if [ -d "$HOME/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi" ]; then
+        ld_entries+=("$HOME/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi")
+    fi
+    if [ -d "$HOME/ryzen_ai_env/lib/python3.12/site-packages/voe/lib" ]; then
+        ld_entries+=("$HOME/ryzen_ai_env/lib/python3.12/site-packages/voe/lib")
+    fi
+
+    ort_lib_path="$SCRIPT_DIR/../source/ryzenai-server/build/bin"
+    if [ -d "$ort_lib_path" ]; then
+        export ORT_LIB_PATH="$ort_lib_path"
+    fi
+
     xrt_common_dir="$SCRIPT_DIR/../source/xdna-driver/xrt/build/Release/runtime_src/core/common"
     if [ -d "$xrt_common_dir" ]; then
         ld_entries+=("$xrt_common_dir")
+    fi
+
+    ryzenai_native_bin_dir="$SCRIPT_DIR/../source/ryzenai-server/build/bin"
+    if [ -d "$ryzenai_native_bin_dir" ]; then
+        ld_entries+=("$ryzenai_native_bin_dir")
     fi
 
     if [ "${#path_entries[@]}" -gt 0 ]; then
@@ -225,8 +267,21 @@ EOF
 }
 
 ensure_runtime_dir() {
-    mkdir -p "$RUNTIME_DIR"
-    touch "$REGISTRY_FILE"
+    local candidate_runtime_dir="$RUNTIME_DIR"
+    local candidate_registry_file="$candidate_runtime_dir/model_registry.tsv"
+
+    if mkdir -p "$candidate_runtime_dir" 2>/dev/null && touch "$candidate_registry_file" 2>/dev/null; then
+        REGISTRY_FILE="$candidate_registry_file"
+        return 0
+    fi
+
+    candidate_runtime_dir="${XDG_STATE_HOME:-$HOME/.local/state}/local_ai/npu"
+    candidate_registry_file="$candidate_runtime_dir/model_registry.tsv"
+    mkdir -p "$candidate_runtime_dir"
+    touch "$candidate_registry_file"
+
+    RUNTIME_DIR="$candidate_runtime_dir"
+    REGISTRY_FILE="$candidate_registry_file"
 }
 
 timestamp_iso() {
@@ -495,6 +550,16 @@ import sys
 text = sys.stdin.read()
 lines = [line.strip() for line in text.splitlines() if line.strip()]
 
+idle_markers = (
+    "no hardware contexts running on device",
+    "no hardware contexts running on the device",
+    "no hardware contexts running",
+)
+
+if any(any(marker in line.lower() for marker in idle_markers) for line in lines):
+    print(0)
+    raise SystemExit(0)
+
 def candidates(source):
     preferred = [
         line for line in source
@@ -533,7 +598,10 @@ get_npu_usage_percent() {
         raw=$(bash -lc "$LOCAL_AI_NPU_USAGE_COMMAND" 2>&1 || true)
     elif xrt_smi_bin=$(find_standard_tool xrt-smi); then
         NPU_USAGE_SOURCE='xrt-smi'
-        raw=$($xrt_smi_bin examine 2>&1 || true)
+        raw=$($xrt_smi_bin examine -r all 2>&1 || true)
+        if [ -z "$raw" ]; then
+            raw=$($xrt_smi_bin examine 2>&1 || true)
+        fi
         if [ -z "$raw" ]; then
             raw=$($xrt_smi_bin examine --report memory 2>&1 || true)
         fi
@@ -600,6 +668,11 @@ find_ryzenai_server() {
     local candidate=""
     local root=""
 
+    if [ -x "$SCRIPT_DIR/../source/ryzenai-server/build/bin/ryzenai-server" ]; then
+        printf '%s\n' "$SCRIPT_DIR/../source/ryzenai-server/build/bin/ryzenai-server"
+        return 0
+    fi
+
     if candidate=$(find_standard_tool ryzenai-server); then
         printf '%s\n' "$candidate"
         return 0
@@ -662,8 +735,15 @@ resolve_backend() {
     if [ "$MODEL_TYPE" = 'ryzenai' ]; then
         ryzen_bin=$(find_ryzenai_server || true)
         if [ -n "$ryzen_bin" ]; then
-            BACKEND_LABEL='ryzenai-server'
+            if [ "$ryzen_bin" = "$SCRIPT_DIR/bin/ryzenai-server" ] || [ "$ryzen_bin" = "$SCRIPT_DIR/ryzenai-server" ]; then
+                BACKEND_LABEL='ryzenai-server-shim'
+            else
+                BACKEND_LABEL='ryzenai-server'
+            fi
             BACKEND_COMMAND=$(build_shell_command "$ryzen_bin" -m "$MODEL_DIR" --port "$PORT" --ctx-size "$CTX_SIZE")
+            if [ "$BACKEND_LABEL" = 'ryzenai-server' ]; then
+                BACKEND_COMMAND="cd $(printf '%q' "$(dirname "$ryzen_bin")") && $BACKEND_COMMAND"
+            fi
             return 0
         fi
     fi
@@ -701,6 +781,36 @@ wait_for_service() {
         fi
         sleep 1
     done
+    return 1
+}
+
+wait_for_model_loaded() {
+    local wait_port=$1
+    local expected_model=$2
+    local wait_seconds=$3
+    local deadline=$((SECONDS + wait_seconds))
+    local health_json=''
+
+    if ! command -v curl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        health_json=$(curl -fsS --max-time 2 "http://127.0.0.1:${wait_port}/api/v1/health" 2>/dev/null || true)
+        if [ -n "$health_json" ] && printf '%s' "$health_json" | python3 -c '
+import json
+import sys
+
+expected = sys.argv[1]
+data = json.load(sys.stdin)
+loaded = data.get("model_loaded")
+raise SystemExit(0 if loaded == expected else 1)
+' "$expected_model"; then
+            return 0
+        fi
+        sleep 1
+    done
+
     return 1
 }
 
@@ -875,6 +985,19 @@ start_model() {
         log_error "Backend did not become reachable on port $PORT within ${wait_seconds}s."
         terminate_pid "$PID" "failed startup" "$CURRENT_LOG_FILE"
         exit 1
+    fi
+
+    if [ "$BACKEND_LABEL" = 'ryzenai-server-shim' ]; then
+        log_msg INFO "Waiting for Lemonade to load model: user.$MODEL_NAME"
+        local model_wait_seconds=$((wait_seconds * 5))
+        if [ "$model_wait_seconds" -lt 300 ]; then
+            model_wait_seconds=300
+        fi
+        if ! wait_for_model_loaded "$PORT" "user.$MODEL_NAME" "$model_wait_seconds"; then
+            log_error "Backend became reachable, but the model did not finish loading within ${model_wait_seconds}s."
+            terminate_pid "$PID" "model load timeout" "$CURRENT_LOG_FILE"
+            exit 1
+        fi
     fi
 
     append_registry_record
