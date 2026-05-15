@@ -45,3 +45,8 @@ starter_scripts/
 source/
 models/
 models/!/npu/run_model.sh
+XRT/
+*.tsv
+.tar.gz
+*.zip
+*.log

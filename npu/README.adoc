@@ -1,0 +1,108 @@
+= NPU Model Runner
+:toc: left
+:toclevels: 3
+:sectnums:
+:source-highlighter: highlight.js
+
+Dieses Verzeichnis enthält den NPU-Launcher für Modellordner im Ryzen AI-Stil.
+
+== Funktionen
+
+Das Skript `run_model.sh` verwaltet nun den vollständigen Lebenszyklus lokaler Prozesse, anstatt nur Ordner zu prüfen:
+
+* *start*: Startet ein Modell aus einer Modelldatei oder einem Modellverzeichnis.
+* *list*: Listet alle laufenden Modellprozesse auf, die von diesem Launcher gestartet wurden.
+* *stats*: Zeigt die aktuelle NPU-Auslastung und die verwalteten Modellprozesse an.
+* *stop*: Beendet einen spezifischen Prozess über den Port, die PID oder den Modellpfad.
+* *stop --all*: Beendet alle verwalteten Modellprozesse.
+
+=== Protokollierung und Metadaten
+
+Der Launcher schreibt Logs in das Verzeichnis `logs/` innerhalb des Modellordners. Die Dateinamen folgen diesem Schema:
+
+`{unix_timestamp}_{model_name}.log`
+
+Zusätzlich werden folgende Dateien erstellt:
+
+* `.run_model_port`
+* `.run_model_pid`
+* `.run_model_last.env`
+
+== Wichtige Hinweise
+
+Dieses Repository enthält NPU-Modellordner, jedoch ist **kein port-basiertes NPU-Server-Backend** im Lieferumfang enthalten.
+
+Unter Linux dokumentiert der aktuelle Workflow von AMD ein Benchmark-/Deployment-Setup unter `RYZEN_AI_INSTALLATION_PATH`; ein API-Server wird nicht automatisch bereitgestellt. Aus diesem Grund ist der Launcher absichtlich restriktiv konfiguriert:
+
+1. Er verweigert den Start, wenn die NPU-Auslastung nicht geprüft werden kann (außer bei Verwendung von `--skip-npu-usage-check`).
+2. Er bestätigt den Status "running" nur dann, wenn ein realer Backend-Prozess den gewählten Port erfolgreich bindet.
+
+Standardmäßig wird die Binärdatei `ryzenai-server` verwendet, sofern diese existiert. Andernfalls muss ein eigener Backend-Befehl angegeben werden.
+
+[NOTE]
+====
+Wenn eine lokale Ryzen AI-Installation gefunden wird, exportiert der Launcher automatisch die benötigten Runtime-Pfade, bevor ein Ryzen AI-Modell gestartet wird.
+====
+
+== Nutzung
+
+[source,bash]
+----
+# Abwärtskompatible Start-Form
+./run_model.sh /path/to/model_dir
+
+# Expliziter Start
+./run_model.sh start /path/to/model_dir --port 8090
+
+# Liste der verwalteten Prozesse anzeigen
+./run_model.sh list
+
+# Aktuelle NPU-Auslastung und laufende Modelle anzeigen
+./run_model.sh stats
+
+# Stoppen nach Port
+./run_model.sh stop --port 8090
+
+# Alle verwalteten Prozesse beenden
+./run_model.sh stop --all
+----
+
+== Benutzerdefinierter Backend-Befehl
+
+Verwenden Sie `--backend-command` oder die Umgebungsvariable `LOCAL_AI_NPU_BACKEND_COMMAND`, wenn Ihr Server-Backend außerhalb des Standardpfads installiert ist.
+
+Folgende Umgebungsvariablen stehen innerhalb des Befehls zur Verfügung:
+
+[cols="1,2"]
+|===
+| Variable | Beschreibung
+| `LOCAL_AI_MODEL_PATH` | Vollständiger Pfad zum Modell
+| `LOCAL_AI_MODEL_DIR` | Verzeichnis des Modells
+| `LOCAL_AI_MODEL_FILE` | Spezifische Modelldatei
+| `LOCAL_AI_PORT` | Zugewiesener Netzwerk-Port
+| `LOCAL_AI_CTX_SIZE` | Kontextfenster-Größe
+| `LOCAL_AI_LOG_FILE` | Pfad zur Log-Datei
+|===
+
+.Beispiel für einen Test-Backend-Befehl:
+[source,bash]
+----
+./run_model.sh start \
+  --skip-npu-usage-check \
+  --backend-command 'python3 -m http.server "$LOCAL_AI_PORT" --bind 127.0.0.1 --directory "$LOCAL_AI_MODEL_DIR"' \
+  ./models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K/
+----
+
+_Hinweis: Dieses Beispiel dient nur zur Demonstration der Prozessverwaltung. Ersetzen Sie es durch Ihr tatsächliches NPU-Inferenz-Backend._
+
+== NPU Usage Gate
+
+Bei Ryzen AI-Modellordnern blockiert der Launcher den Start standardmäßig ab einer NPU-Auslastung von **70%**.
+
+Die Telemetrie-Quellen werden in folgender Reihenfolge geprüft:
+
+1. `LOCAL_AI_NPU_USAGE_COMMAND`
+2. `xrt-smi`
+3. `xbutil`
+
+Falls keine dieser Quellen verfügbar ist, wird der Start verweigert, es sei denn, das Flag `--skip-npu-usage-check` wird übergeben.

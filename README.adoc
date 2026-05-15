@@ -296,6 +296,22 @@ mcpServers:
 
 == Using the NPU
 
+The `starter_scripts` generated in this repo are for GGUF models with `llama-server`. They are not the NPU launcher.
+
+For Ryzen AI / ONNX GenAI model folders use `./npu/run_model.sh` instead.
+
+`./npu/run_model.sh` now:
+
+- starts a model from a model path
+- writes logs to `logs/<unix_timestamp>_<model_name>.log` inside the model folder
+- records the chosen port and pid in the model folder
+- can list running managed model processes
+- can report current NPU usage and managed model processes with `stats`
+- can stop a model by pid, port or model path
+- refuses startup if NPU usage is above `70%`
+
+Important: AMD's Linux documentation currently describes an LLM benchmark/deployment flow, not a built-in port-based API server. If `ryzenai-server` is not installed, you must provide a backend command explicitly with `--backend-command` or `LOCAL_AI_NPU_BACKEND_COMMAND`.
+
 Install 
 
 [source,bash]
@@ -303,11 +319,26 @@ Install
 https://ryzenai.docs.amd.com/en/latest/linux.html
 ----
 
+[source,bash]
+----
+# Start a Ryzen AI model folder
+./npu/run_model.sh ./npu/models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K/
+
+# Show managed model processes
+./npu/run_model.sh list
+
+# Show NPU usage and managed model processes
+./npu/run_model.sh stats
+
+# Stop a model by port
+./npu/run_model.sh stop --port 8080
+----
+
 Find a model that is optimized for AMD hardware, unsing the ONNX format, and download it to your local machine. You can use the Hugging Face CLI or other tools to find and download compatible models.
 
 https://huggingface.co/models?other=ryzenai
 
-https://huggingface.co/models?library=onnx
+https://huggingface.co/models?num_parameters=min:0,max:9B&library=onnx&sort=trending
 
 Convert models to ONNX format:
 
