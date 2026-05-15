@@ -58,6 +58,7 @@ candidate_ryzen_ai_roots() {
 
     for candidate in \
         "${RYZEN_AI_INSTALLATION_PATH:-}" \
+        "$SCRIPT_DIR/../.deps/ryzenai-sdk/1.7.1" \
         "$SCRIPT_DIR/../.deps/ryzenai-sdk/1.7.0" \
         "$SCRIPT_DIR/../.deps/ryzenai-sdk" \
         "$HOME/ryzen_ai_env" \
@@ -107,8 +108,9 @@ configure_ryzen_ai_runtime_environment() {
         fi
 
         if [ -n "$provider_lib" ] && [ -f "$provider_lib" ]; then
+            export RYZENAI_INSTALL_PATH="$root"
+            export RYZENAI_EP_PATH="$provider_lib"
             break
-    export RYZENAI_INSTALL_PATH="$root"
         fi
     done < <(candidate_ryzen_ai_roots)
 
@@ -128,10 +130,6 @@ configure_ryzen_ai_runtime_environment() {
         path_entries+=("$site_packages_dir/bin")
     fi
 
-    if [ -d "$HOME/ryzen_ai_env/bin" ]; then
-        path_entries+=("$HOME/ryzen_ai_env/bin")
-    fi
-
     if [ -d "$root/deployment/lib" ]; then
         ld_entries+=("$root/deployment/lib")
     fi
@@ -142,27 +140,63 @@ configure_ryzen_ai_runtime_environment() {
         if [ -n "$provider_lib" ] && [ -f "$provider_lib" ]; then
             export RYZENAI_EP_PATH="$provider_lib"
             ld_entries+=("$(dirname "$provider_lib")")
+            
+            # WORKAROUND: ONNX Runtime GenAI looks for provider library in project root
+            # Copy provider library if not already present
+            if [ ! -f "$PROJECT_ROOT/libonnxruntime_providers_ryzenai.so" ]; then
+                cp "$provider_lib" "$PROJECT_ROOT/" 2>/dev/null || true
+            fi
         fi
         if [ -d "$site_packages_dir/voe/lib" ]; then
             ld_entries+=("$site_packages_dir/voe/lib")
         fi
     fi
 
-    if [ -d "$HOME/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi" ]; then
-        ld_entries+=("$HOME/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi")
-    fi
-    if [ -d "$HOME/ryzen_ai_env/lib/python3.12/site-packages/voe/lib" ]; then
-        ld_entries+=("$HOME/ryzen_ai_env/lib/python3.12/site-packages/voe/lib")
+    xrt_npu_lib64_dir="$SCRIPT_DIR/../npu/XRT/build/Release/opt/xilinx/xrt/lib64"
+    if [ -d "$xrt_npu_lib64_dir" ]; then
+        ld_entries+=("$xrt_npu_lib64_dir")
     fi
 
-    ort_lib_path="$SCRIPT_DIR/../source/ryzenai-server/build/bin"
-    if [ -d "$ort_lib_path" ]; then
-        export ORT_LIB_PATH="$ort_lib_path"
+    xrt_npu_common_dir="$SCRIPT_DIR/../npu/XRT/build/Release/runtime_src/core/common"
+    if [ -d "$xrt_npu_common_dir" ]; then
+        ld_entries+=("$xrt_npu_common_dir")
+    fi
+
+    xrt_npu_pcie_dir="$SCRIPT_DIR/../npu/XRT/build/Release/runtime_src/core/pcie/linux"
+    if [ -d "$xrt_npu_pcie_dir" ]; then
+        ld_entries+=("$xrt_npu_pcie_dir")
     fi
 
     xrt_common_dir="$SCRIPT_DIR/../source/xdna-driver/xrt/build/Release/runtime_src/core/common"
     if [ -d "$xrt_common_dir" ]; then
         ld_entries+=("$xrt_common_dir")
+    fi
+
+    xrt_native_common_dir="$SCRIPT_DIR/../source/xdna-driver/build/native/xrt/src/runtime_src/core/common"
+    if [ -d "$xrt_native_common_dir" ]; then
+        ld_entries+=("$xrt_native_common_dir")
+    fi
+
+    xrt_native_pcie_dir="$SCRIPT_DIR/../source/xdna-driver/build/native/xrt/src/runtime_src/core/pcie/linux"
+    if [ -d "$xrt_native_pcie_dir" ]; then
+        ld_entries+=("$xrt_native_pcie_dir")
+    fi
+
+    xrt_install_root=$(pick_first_existing_path \
+        "$SCRIPT_DIR/../npu/XRT/build/Release/opt/xilinx/xrt" \
+        "$SCRIPT_DIR/../source/xdna-driver/xrt/build/ReleaseEdgeNpu/opt/xilinx/xrt" \
+        "$SCRIPT_DIR/../source/xdna-driver/xrt/build/Release/opt/xilinx/xrt" || true)
+    if [ -n "$xrt_install_root" ] && [ -d "$xrt_install_root" ]; then
+        export XILINX_XRT="$xrt_install_root"
+        if [ -d "$xrt_install_root/lib64" ]; then
+            ld_entries+=("$xrt_install_root/lib64")
+        fi
+    fi
+
+    # Use local XDNA driver shim instead of system library to avoid device-probe failures
+    xdna_driver_dir="$SCRIPT_DIR/../source/xdna-driver/build/native/src/shim"
+    if [ -d "$xdna_driver_dir" ]; then
+        ld_entries+=("$xdna_driver_dir")
     fi
 
     ryzenai_native_bin_dir="$SCRIPT_DIR/../source/ryzenai-server/build/bin"
@@ -191,6 +225,9 @@ configure_ryzen_ai_runtime_environment() {
     fi
     if [ -n "$xrt_common_dir" ] && [ -d "$xrt_common_dir" ]; then
         log_msg INFO "Added local XRT runtime path: $xrt_common_dir"
+    fi
+    if [ -d "$xdna_driver_dir" ]; then
+        log_msg INFO "Using local XDNA driver shim: $xdna_driver_dir"
     fi
 }
 
@@ -740,7 +777,7 @@ resolve_backend() {
             else
                 BACKEND_LABEL='ryzenai-server'
             fi
-            BACKEND_COMMAND=$(build_shell_command "$ryzen_bin" -m "$MODEL_DIR" --port "$PORT" --ctx-size "$CTX_SIZE")
+            BACKEND_COMMAND=$(build_shell_command "$ryzen_bin" -m "$MODEL_DIR" --port "$PORT" --ctx-size "$CTX_SIZE" --verbose)
             if [ "$BACKEND_LABEL" = 'ryzenai-server' ]; then
                 BACKEND_COMMAND="cd $(printf '%q' "$(dirname "$ryzen_bin")") && $BACKEND_COMMAND"
             fi
@@ -957,24 +994,33 @@ start_model() {
     log_msg INFO "Launch command: $BACKEND_COMMAND"
     log_msg INFO "Logs: $CURRENT_LOG_FILE"
 
+    # Capture environment variables that were set by configure_ryzen_ai_runtime_environment
+    # These need to be passed explicitly because bash -lc creates a new login shell
+    local ryzen_install_path="${RYZENAI_INSTALL_PATH:-}"
+    local ryzen_installation_path="${RYZENAI_INSTALLATION_PATH:-}"
+    local ryzen_ep_path="${RYZENAI_EP_PATH:-}"
+    local dd_root="${DD_ROOT:-}"
+    local dd_cache="${DD_CACHE:-}"
+    local path_value="${PATH}"
+    local ld_library_path_value="${LD_LIBRARY_PATH}"
+
+    # Build the backend launch command with all required environment variables
+    # We need to export them explicitly so they survive the subshell
+    local backend_env_cmd="export RYZENAI_INSTALL_PATH='$ryzen_install_path'; "
+    backend_env_cmd+="export RYZENAI_INSTALLATION_PATH='$ryzen_installation_path'; "
+    backend_env_cmd+="export RYZENAI_EP_PATH='$ryzen_ep_path'; "
+    backend_env_cmd+="export DD_ROOT='$dd_root'; "
+    backend_env_cmd+="export DD_CACHE='$dd_cache'; "
+    backend_env_cmd+="export PATH='$path_value'; "
+    backend_env_cmd+="export LD_LIBRARY_PATH='$ld_library_path_value'; "
+    backend_env_cmd+="export ORT_LOG_SEVERITY_LEVEL=0; "
+    backend_env_cmd+="export ORT_LOG_VERBOSITY_LEVEL=4; "
+    backend_env_cmd+="$BACKEND_COMMAND"
+
     if command -v setsid >/dev/null 2>&1; then
-        env \
-            LOCAL_AI_MODEL_PATH="$MODEL_INPUT" \
-            LOCAL_AI_MODEL_DIR="$MODEL_DIR" \
-            LOCAL_AI_MODEL_FILE="$MODEL_FILE" \
-            LOCAL_AI_PORT="$PORT" \
-            LOCAL_AI_CTX_SIZE="$CTX_SIZE" \
-            LOCAL_AI_LOG_FILE="$CURRENT_LOG_FILE" \
-            setsid bash -lc "$BACKEND_COMMAND" >>"$CURRENT_LOG_FILE" 2>&1 < /dev/null &
+        setsid bash -c "$backend_env_cmd" >>"$CURRENT_LOG_FILE" 2>&1 < /dev/null &
     else
-        env \
-            LOCAL_AI_MODEL_PATH="$MODEL_INPUT" \
-            LOCAL_AI_MODEL_DIR="$MODEL_DIR" \
-            LOCAL_AI_MODEL_FILE="$MODEL_FILE" \
-            LOCAL_AI_PORT="$PORT" \
-            LOCAL_AI_CTX_SIZE="$CTX_SIZE" \
-            LOCAL_AI_LOG_FILE="$CURRENT_LOG_FILE" \
-            bash -lc "$BACKEND_COMMAND" >>"$CURRENT_LOG_FILE" 2>&1 < /dev/null &
+        bash -c "$backend_env_cmd" >>"$CURRENT_LOG_FILE" 2>&1 < /dev/null &
     fi
 
     PID=$!

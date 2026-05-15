@@ -5,7 +5,9 @@
 
 This guide covers the installation, model acquisition, and execution of local LLMs using the Ryzen AI NPU launcher and the `claw-code` tool on Ubuntu, optimized for hardware like the Ryzen AI 9 HX-370 on my Ubuntu based system.
 
-When using the NPU launcher and the bundled Ryzen AI model folders, you can start the local model without changing the Continue configuration.
+When using the scripts in the script folder and the from there generated starter scripts, you are able to start every model your PC can handle and can try out different models without changing the configuration of the tools.
+
+No matter wich script you now start form the script folder, continue will directly start to use it.
 
 
 
@@ -39,24 +41,64 @@ To download gated models or use private settings, authenticate with your token:
 huggingface-cli login
 ----
 
-== 2. Ryzen AI Model Folders
+/scripts/download_models.sh unsloth/Phi-4-mini-instruct-GGUF
+----
 
-This repository ships Ryzen AI / ONNX model folders under `npu/models/`.
+Or use the Hugging Face CLI directly to specify models and output directories:
 
-The bundled autocomplete model is:
+
+== 2. Model Downloads
+
+We use GGUF formatted models for compatibility with `llama.cpp`.
+
+You can click "Copy modle name to clipboard" and download it with the scripts/download_models.sh script, or use the Hugging Face CLI directly:
 
 [source,bash]
 ----
-./npu/models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K/
+huggingface-cli download unsloth/Qwen3.5-9B-GGUF \
+    Qwen3.5-9B-Q6_K.gguf --local-dir ./models/qwen3.5-9b
 ----
 
-Use `./npu/run_model.sh` on that folder, or point it at another local Ryzen AI model folder that contains `genai_config.json` and the matching tokenizer/template files.
+or use the download_models.sh script to donwload complete folders with multiple models:
 
-For additional Ryzen AI-compatible models, search Hugging Face for ONNX exports:
+[source,bash]
+----
+./scripts/download_models.sh unsloth/Phi-4-mini-instruct-GGUF
+----
 
-https://huggingface.co/models?other=ryzenai
+=== Good sources for more models
 
-https://huggingface.co/models?num_parameters=min:0,max:9B&library=onnx&sort=trending
+Here are some modles that you can use on a local PC, less b(billion parameters) means smaller model size::
+
+(08.May.2026)
+
+=== Coding models
+
+unsloth/Qwen3.5-4B-GGUF
+
+bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF
+
+=== Code completion models
+
+Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF
+
+bartowski/Qwen_Qwen3.5-0.8B-GGUF
+
+=== General purpose models
+
+unsloth/Phi-4-mini-reasoning-GGUF
+
+unsloth/gemma-4-E2B-it-GGUF
+
+=== Good sources for more models
+
+https://huggingface.co/unsloth/
+
+https://huggingface.co/lmstudio-community
+
+https://huggingface.co/bartowski
+
+https://huggingface.co/BAAI
 
 Very intressting MAMBA type models that not use transformers but still have good performance:
 https://huggingface.co/ibm-granite
@@ -72,7 +114,12 @@ NPU extras
 
 NPU reranking is not wired into this repository yet.
 
-== 3. Running the NPU Model
+== 3. Running the Models
+
+TODO
+
+bash ./starter_scripts/autocomplete_model/
+start_qwen2_5-coder-0_5b-instruct_rai_1_7_1_npu_4k.sh
 
 === CLI Test Mode
 Run a quick test to ensure the Ryzen AI NPU stack is working on your chip.
@@ -81,8 +128,6 @@ Use the bundled autocomplete starter script or call the launcher directly for th
 
 [source,bash]
 ----
-bash ./starter_scripts/autocomplete_model/start_qwen2_5-coder-0_5b-instruct_rai_1_7_1_npu_4k.sh
-# or
 ./npu/run_model.sh start --port 8081 ./npu/models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K/
 ----
 
@@ -220,6 +265,24 @@ mcpServers:
       - "."
 
 ----
+
+----
+name: cortex-scout
+version: 1.0.0
+schema: v1
+
+mcpServers:
+  - name: cortex-scout
+    command: env
+    args:
+      - RUST_LOG=warn
+      - SEARCH_ENGINES=google,bing,duckduckgo,brave
+      - LANCEDB_URI=/home/jonas/git/cortex-scout/lancedb
+      - HTTP_TIMEOUT_SECS=30
+      - MAX_CONTENT_CHARS=10000
+      - /home/jonas/git/cortex-scout/mcp-server/target/release/cortex-scout-mcp
+----
+
 
 == Using the NPU
 
