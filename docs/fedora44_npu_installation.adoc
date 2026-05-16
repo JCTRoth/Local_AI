@@ -1,0 +1,196 @@
+= Fedora 44 Ryzen AI NPU Setup
+:toc: left
+:source-highlighter: highlight.js
+:icons: font
+
+This document records the Fedora 44 setup that made the Ryzen AI NPU stack work in this repository.
+It covers the XRT build, the native XDNA driver plugin build, and the extra packages that were required
+on this machine.
+
+== What was installed
+
+The Fedora packages that were missing and had to be added were:
+
+- `glibc-static`
+- `libstdc++-static`
+
+`dnf` also pulled in `libxcrypt-static` as a dependency.
+
+The build used an existing local Boost 1.83 install under `~/.local`:
+
+- headers from `~/.local/include`
+- shared libraries from `~/.local/lib`
+
+The system already had `boost-devel` and `boost-filesystem` installed, but the XRT build still needed
+the local Boost runtime on the library path while the build and tests ran.
+
+== 1. Install the missing Fedora packages
+
+[source,bash]
+----
+sudo dnf install -y glibc-static libstdc++-static
+----
+
+If Boost is not already present on the system, install the matching development packages too:
+
+[source,bash]
+----
+sudo dnf install -y boost-devel boost-filesystem
+----
+
+== 2. Build XRT for NPU
+
+Use the XRT tree under `npu/XRT` and keep the local Boost runtime visible while the build runs:
+
+[source,bash]
+----
+cd ~/git/Local_AI/npu/XRT/build
+env LD_LIBRARY_PATH="$HOME/.local/lib:$HOME/.local/lib64:$LD_LIBRARY_PATH" ./build.sh -noert
+----
+
+Notes:
+
+- `-noert` prevents the build from stopping when Vitis or the MicroBlaze ERT firmware is not available.
+- The native AIEBU helper tools link with `-static`, so `glibc-static` and `libstdc++-static` are required.
+- On this machine XRT picked up Boost 1.83 from `~/.local`, so the shared library path must include that directory.
+
+The build also passed the test suite after forcing a stable locale in the readelf helper. The repo now
+normalizes that output in `run-readelf.sh` so the comparison tests do not depend on the host language.
+
+== 3. Build the native XDNA driver plugin
+
+The repository provides a native CMake path for the user-space driver plugin. That is the Fedora-local
+path that was validated here; the Yocto-based packaging script is still available, but it is not the
+local Fedora validation path.
+
+[source,bash]
+----
+cd ~/git/Local_AI/source/xdna-driver
+env LC_ALL=C LANG=C \
+    LD_LIBRARY_PATH="$HOME/.local/lib:$HOME/.local/lib64:$LD_LIBRARY_PATH" \
+    cmake -S . -B build/native -DSKIP_KMOD=1 -DPACKAGE_LEGACY_DRIVER=OFF
+cmake --build build/native --target xrt_driver_xdna -j 24
+----
+
+This produces the plugin library at:
+
+[source,bash]
+----
+build/native/src/shim/libxrt_driver_xdna.so
+----
+
+XRT loads driver plug-ins from the same `lib64` directory that contains `libxrt_core.so`.
+For a local build, the XDNA plug-in must be visible there with the full SONAME chain:
+
+[source,bash]
+----
+libxrt_driver_xdna.so
+libxrt_driver_xdna.so.2
+libxrt_driver_xdna.so.2.23.0
+----
+
+Without those files in the XRT `lib64` directory, `xrt-smi` reports `0 devices found` even when
+the `amdxdna` kernel driver is already loaded and the PCI function is present.
+
+== 4. Runtime helpers
+
+The launcher in `npu/run_model.sh` is the local entry point for Ryzen AI model folders. It:
+
+- starts a model backend
+- lists managed processes
+- shows NPU usage with `stats`
+- stops individual or all managed processes
+
+The launcher also looks for a local Ryzen AI runtime root and exports the runtime paths it needs when one is found.
+
+Use it like this:
+
+[source,bash]
+----
+./npu/run_model.sh start ./models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K/
+./npu/run_model.sh stats
+./npu/run_model.sh list
+----
+
+== 5. Verification
+
+The generated XRT tree can be used directly from the build directory. The shipped `setup.sh` is a
+Bash script, so in a fish shell it is easier to call the binaries directly instead of sourcing it.
+
+[source,bash]
+----
+env LD_LIBRARY_PATH="$HOME/.local/lib:$HOME/.local/lib64" \
+    ~/git/Local_AI/npu/XRT/build/Release/opt/xilinx/xrt/bin/xrt-smi examine
+----
+
+To make the wrapper scripts find the built toolchain, prepend the build tree to `PATH` and keep the
+local Boost runtime on `LD_LIBRARY_PATH`:
+
+[source,bash]
+----
+env PATH="$HOME/git/Local_AI/npu/XRT/build/Release/opt/xilinx/xrt/bin:$PATH" \
+    LD_LIBRARY_PATH="$HOME/.local/lib:$HOME/.local/lib64:$LD_LIBRARY_PATH" \
+    ./npu/npu_stats.sh
+----
+
+`npu_stats.sh` only reports a percentage when `xrt-smi` or `xbutil` can see a device and print usable
+telemetry. On this machine the built `xrt-smi` initially reported `0 devices found` until the XDNA
+plug-in was placed next to the XRT libraries. After that, the next blocker was a `MAP_LOCKED` mmap
+failure because the shell's locked-memory limit is only 8192 KB.
+
+If you hit the same mmap error, check `ulimit -l`. A limit of 8192 KB is too low for the 64 MiB
+device heap mapping used by the XDNA userspace path.
+
+For a one-off test run, use a transient systemd service with a higher memlock limit instead of
+`--scope`. This worked on the HX-370 on this machine:
+
+[source,bash]
+----
+sudo systemd-run --wait --collect --pipe \
+    --property=LimitMEMLOCK=infinity \
+    --setenv=HOME=/home/jonas \
+    --setenv=LD_LIBRARY_PATH=/home/jonas/.local/lib:/home/jonas/.local/lib64 \
+    /usr/bin/bash -lc 'env LD_LIBRARY_PATH=$LD_LIBRARY_PATH \
+        /home/jonas/git/Local_AI/npu/XRT/build/Release/opt/xilinx/xrt/bin/xrt-smi examine \
+        --device 0000:67:00.1'
+----
+
+The same wrapper also works for `xrt-smi validate --device 0000:67:00.1`.
+
+The stock `xrt-smi` build on this machine reports the device and platform state, but not a usage
+percentage, so `./npu/run_model.sh stats` still prints `NPU usage: unavailable` unless you set
+`LOCAL_AI_NPU_USAGE_COMMAND` to another source.
+
+== 6. Optional system install
+
+To make the built XRT tools available from ordinary bash shells, copy the staged install tree to
+`/opt` and add system links for the front-end wrappers. The `unwrapped` sibling link is required,
+because the wrapper scripts resolve it relative to their own location.
+
+The unwrapped binaries also need the Boost 1.83 runtime in the same `/opt/xilinx/xrt/lib64`
+directory, otherwise `xrt-smi` will fail to start with missing shared libraries.
+
+To make `xrt-smi` work from a plain bash shell without `sudo`, also register `/opt/xilinx/xrt/lib64`
+with the dynamic linker cache and grant `cap_ipc_lock` to the unwrapped binary.
+
+[source,bash]
+----
+sudo cp -a ~/git/Local_AI/npu/XRT/build/Release/opt/xilinx/xrt /opt/xilinx/
+sudo cp -a ~/.local/lib/libboost_filesystem.so* ~/.local/lib/libboost_program_options.so* /opt/xilinx/xrt/lib64/
+printf '/opt/xilinx/xrt/lib64\n' | sudo tee /etc/ld.so.conf.d/local-xrt.conf >/dev/null
+sudo ldconfig
+sudo setcap cap_ipc_lock+ep /opt/xilinx/xrt/bin/unwrapped/xrt-smi
+sudo ln -sfn /opt/xilinx/xrt/bin/xrt-smi /usr/local/bin/xrt-smi
+sudo ln -sfn /opt/xilinx/xrt/bin/xbmgmt /usr/local/bin/xbmgmt
+sudo ln -sfn /opt/xilinx/xrt/bin/xclbinutil /usr/local/bin/xclbinutil
+sudo ln -sfn /opt/xilinx/xrt/bin/xbflash.qspi /usr/local/bin/xbflash.qspi
+sudo ln -sfn /opt/xilinx/xrt/bin/xball /usr/local/bin/xball
+sudo ln -sfn /opt/xilinx/xrt/bin/unwrapped /usr/local/bin/unwrapped
+----
+
+If you want a system-wide install later, install the generated XRT package instead of using the build
+tree directly.
+
+
+
+https://dev.to/ankk98/guide-to-setting-up-amd-ryzen-ai-npu-drivers-on-fedora-43-477i

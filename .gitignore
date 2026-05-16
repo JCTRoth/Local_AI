@@ -50,3 +50,4 @@ XRT/
 .tar.gz
 *.zip
 *.log
+*.deps

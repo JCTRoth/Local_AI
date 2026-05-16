@@ -207,8 +207,9 @@ bash ./starter_scripts/autocomplete_model/start_qwen2_5-coder-0_5b-instruct_rai_
 
 Chrome DevTools
 
-Sentry
+https://github.com/cortex-works/cortex-scout
 
+...
 
 
 === More MCP Servers
@@ -250,22 +251,9 @@ models:
     roles:
       - autocomplete
 
-mcpServers:
-  - name: memory
-    command: npx
-    args:
-      - -y
-      - "@modelcontextprotocol/server-memory"
-
-  - name: filesystem
-    command: npx
-    args:
-      - -y
-      - "@modelcontextprotocol/server-filesystem"
-      - "."
-
 ----
 
+[source,yaml]
 ----
 name: cortex-scout
 version: 1.0.0
@@ -281,10 +269,44 @@ mcpServers:
       - HTTP_TIMEOUT_SECS=30
       - MAX_CONTENT_CHARS=10000
       - /home/jonas/git/cortex-scout/mcp-server/target/release/cortex-scout-mcp
+
+  - name: memory
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-memory"
+
+  - name: filesystem
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - "."
 ----
 
 
 == Using the NPU
+
+Steps to follow:
+
+Kernel 7.1 >
+
+Install Ryzen AI Driver
+
+Install FastFlowLM -> Ryzen AI Server
+
+
+Setting up the NPU for Ryzen AI involves several steps, including installing the necessary drivers, configuring the environment, and verifying the installation.
+
+I recommend to have at least Linux Kernel 7.1 since this will make everything a lot easier. If you have an older kernel, you might need to manually load the `amdxdna` kernel module and ensure it is properly configured.
+
+https://www.techpowerup.com/347409/linux-7-1-kernel-will-enhance-support-for-amd-ryzen-ai-npus
+
+Than go there create an Account and download the latest drivers and tools for your system:
+https://ryzenai.docs.amd.com/en/latest/linux.html
+
+I tryed a lot to install everything by the Git Repos but gave up after trying it on Ubuntu and Fedora the installer from the AMD website was the only thing that worked for me.
+
 
 The `starter_scripts/autocomplete_model` wrapper starts the bundled Ryzen AI autocomplete model.
 
@@ -374,4 +396,3 @@ https://github.com/amd/gaia/releases
 
 
 Reboot your system to apply the changes.
-

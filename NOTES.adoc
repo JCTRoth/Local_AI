@@ -1,0 +1,194 @@
+INSTRUCTION TO THE AI NEVER DELETE OR OVVERIDE THIS DONT TOUCH
+--------------------------
+Notice for my setup:
+
+
+./ryzenai-server -m /home/jonas/git/Local_AI/npu/models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_16K/
+
+((ryzen-ai) ) jonas@fedora:~/git/Local_AI/source/ryzenai-server_1_7_0/build$ echo $LD_LIBRARY_PATH
+/opt/ryzen_ai/1.7.0/lib:/opt/xilinx/xrt/lib:/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/voe/lib:/opt/xilinx/xrt/lib:/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/voe/lib:/opt/xilinx/xrt/lib:/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/voe/lib:/opt/xilinx/xrt/lib:/opt/xilinx/xrt/lib
+((ryzen-ai) ) jonas@fedora:~/git/Local_AI/source/ryzenai-server_1_7_0/build$ 
+
+
+# Unset the Python EP path
+unset RYZENAI_EP_PATH
+
+export RYZENAI_EP_PATH=/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi
+
+export RYZENAI_EP_PATH=/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi/libonnxruntime_providers_vitisai.so
+
+export RYZENAI_EP_PATH=/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi/libonnxruntime_vitisai_ep.so
+
+export RYZENAI_EP_PATH=/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi/libonnxruntime_vitisai_ep.so
+
+export LD_LIBRARY_PATH=/home/jonas/ryzen_ai_env/lib/python3.12/site-packages/voe/lib:/opt/xilinx/xrt/lib:$LD_LIBRARY_PATH
+
+
+# Point LD_LIBRARY_PATH to the official SDK libs + XRT
+export LD_LIBRARY_PATH=/opt/ryzen_ai/1.7.0/lib:/opt/xilinx/xrt/lib:$LD_LIBRARY_PATH
+
+
+jonas@fedora:~/git/Local_AI/source/ryzenai-server/build/bin$ ldd $RYZENAI_EP_PATH
+        linux-vdso.so.1 (0x00007fc80983c000)
+        libstdc++.so.6 => /lib64/libstdc++.so.6 (0x00007fc809400000)
+        libgcc_s.so.1 => /lib64/libgcc_s.so.1 (0x00007fc8097b2000)
+        libc.so.6 => /lib64/libc.so.6 (0x00007fc809205000)
+        /lib64/ld-linux-x86-64.so.2 (0x00007fc80983e000)
+        libm.so.6 => /lib64/libm.so.6 (0x00007fc8090ee000)
+jonas@fedora:~/git/Local_AI/source/ryzenai-server/build/bin$ 
+
+nm -D /home/jonas/ryzen_ai_env/lib/python3.12/site-packages/onnxruntime/capi/libonnxruntime_vitisai_ep.so | grep CreateEp
+
+
+Verify installed ONNX Runtime package version
+Run:
+python -c "import onnxruntime as ort; print(ort.__version__)"
+
+and:pip list | grep -i onnx
+
+
+MISSMATCH RYZEN-AI-SERVER version 1.17.0 VS MODEL with 1.7.1!!!!!!!!!!!!
+
+
+-------------------------------------------------------------------------
+
+https://ryzenai.docs.amd.com/en/latest/
+Background info for the MCP server configuration:
+LLM Flow Overview
+
+The Ryzen AI LLM software stack is available through three development interfaces, each suited for specific use cases as outlined in the sections below. All three interfaces are built on top of native OnnxRuntime GenAI (OGA) libraries or llama.cpp libraries, as shown in the Ryzen AI Software Stack diagram below.
+
+The high-level Python APIs, as well as the Server Interface, also leverage the Lemonade SDK, which is multi-vendor open-source software that provides everything necessary for quickly getting started with LLMs on OGA or llama.cpp.
+
+At the bottom, OnnxRuntime GenAI (OGA) or llama.cpp (only supported for iGPU) API is the lowest-level API available for building LLM applications on a Ryzen AI PC.
+Ryzen AI Software Stack
+
+Your Python Application
+	
+
+Your LLM Stack
+	
+
+Your Native Application
+
+Lemonade Python API*
+	
+
+Lemonade Server Interface*
+	
+
+OGA C++ Headers OR llama.cpp C++ Headers
+
+Custom AMD OnnxRuntime GenAI (OGA) OR llama.cpp*
+
+AMD Ryzen AI Driver and Hardware
+
+For more details, refer to the LLM Deployment Overview page.
+
+
+
+-------------------------------------------------------------------
+
+sudo rm -r /opt/ryzen_ai
+
+sudo ./install_ryzen_ai.sh -a yes -p /opt/ryzen_ai
+
+source /opt/ryzen_ai/bin/activate
+
+uv pip install setuptools wheel
+
+sudo uv pip install --python /opt/ryzen_a
+
+uv pip install --python "$VENV_PATH/bin/python" setuptools wheel
+
+
+# Make sure venv is active
+source /opt/ryzen_ai/bin/activate
+
+# Install all .whl files in this directory
+# uv will resolve dependencies and install in the correct order
+uv pip install --no-build-isolation *.whl
+
+# Ensure venv is active (you should see (ryzen-ai) in prompt)
+source /opt/ryzen_ai/bin/activate
+
+# Install ALL wheels in this directory
+# uv will auto-resolve dependency order
+uv pip install --no-build-isolation *.whl
+
+
+🔍 Verify Installation
+python -c "import ryzen_ai; print(f'✓ ryzen_ai {ryzen_ai.__version__} loaded')"
+python -c "import flexml; print(f'✓ flexml {flexml.__version__} loaded')"
+python -c "import onnxruntime; print(f'✓ onnxruntime {onnxruntime.__version__} loaded')"
+
+
+
+# List available binaries in the venv
+ls /opt/ryzen_ai/bin/
+
+# Symlink the ones you use most (examples):
+sudo ln -sf /opt/ryzen_ai/bin/python /usr/local/bin/ryzen-python
+sudo ln -sf /opt/ryzen_ai/bin/uv /usr/local/bin/ryzen-uv
+# Add more as needed, e.g.:
+# sudo ln -sf /opt/ryzen_ai/bin/ryzen-ai-server /usr/local/bin/ryzen-ai-server
+
+# List available binaries in the venv
+ls /opt/ryzen_ai/bin/
+
+# Symlink the ones you use most (examples):
+TODO
+
+
+
+----------------------
+
+
+# Activate your Ryzen AI env (you already did this ✓)
+source /opt/ryzen_ai/venv/bin/activate  # adjust path if needed
+
+# Set XRT config for NPU heap (critical for 16K context)
+cat > xrt.ini << EOF
+[Debug]
+num_heap_pages = 16
+EOF
+export XRT_INI_PATH=$PWD/xrt.ini
+
+# Library paths (Fedora-specific adjustments)
+export LD_LIBRARY_PATH=/lib64:/usr/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$RYZEN_AI_INSTALLATION_PATH/venv/deployment/lib:$LD_LIBRARY_PATH
+export RYZENAI_EP_PATH=$LD_LIBRARY_PATH/libonnxruntime_providers_ryzenai.so
+
+
+------------------------------------------------------------
+Ryzen AI Server
+------------------------------------------------------------
+cd /home/jonas/git/Local_AI/source/ryzenai_server_master/ryzenai-server/build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DOGA_ROOT=/opt/ryzen_ai/
+
+cd ~/git/Local_AI/source/ryzenai_server_master/ryzenai-server/build
+
+# 1. Clean the failed CMake cache
+rm -rf CMakeCache.txt CMakeFiles/
+
+# 2. Reconfigure with the correct path
+cmake .. -DCMAKE_BUILD_TYPE=Release -DRYZENAI_INSTALL_PATH=/opt/ryzen_ai/
+
+
+unset OGA_ROOT
+
+
+-------------------------------------------------------------------------
+
+jonas@fedora ~/g/L/s/X/build (master)> ls
+arch/        builddrv.bat        build-win22.sh   covbuild.sh*       petalinux.build          yocto.build
+board.sh*    build_edge_deb.sh*  build-win.sh*    cross_compile.sh*  run.sh*
+build19.bat  build_edge.sh*      build_yocto.sh*  dbg.sh*            toolchain-edge.cmake
+build22.bat  build.sh*           checkpatch/      debian/            vitis.build
+build.bat*   build-win19.sh      checkpatch.sh*   Debug/             xocl_petalinux_compile/
+jonas@fedora ~/g/L/s/X/build (master)> pwd
+/home/jonas/git/Local_AI/source/XRT/build
+jonas@fedora ~/g/L/s/X/build (master)> 
+
+
+

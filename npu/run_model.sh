@@ -2,6 +2,12 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+export RYZENAI_INSTALL_PATH="/opt/ryzen_ai"
+export LD_LIBRARY_PATH="/opt/ryzen_ai/lib/python3.12/site-packages/onnxruntime/capi:/opt/hybrid-llm/hybrid-llm-artifacts/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export PYTHONPATH="/opt/ryzen_ai/lib/python3.12/site-packages${PYTHONPATH:+:$PYTHONPATH}"
+export PATH="/opt/ryzen_ai/bin${PATH:+:$PATH}"
+exec "$@"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME_DIR="$SCRIPT_DIR/runtime"
 REGISTRY_FILE="$RUNTIME_DIR/model_registry.tsv"
