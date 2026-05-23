@@ -4,7 +4,7 @@ IFS=$'\n\t'
 
 usage() {
   cat <<'EOF'
-Usage: generate_start_scripts.sh [options]
+Usage: .generate_start_scripts.sh [options]
 
 Options:
   --model-root DIR     Directory to scan for model files (default: .)
@@ -308,30 +308,30 @@ fi
   fi
 
   # Determine llama-server at runtime so the script can be invoked from anywhere.
-  SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   EMBEDDED_LLAMA_SERVER="${LLAMA_SERVER_ABS}"
   MODEL_PATH="${abs_model}"
 
   find_llama_server() {
-    if [ -n "\$EMBEDDED_LLAMA_SERVER" ]; then
-      if [ -x "\$EMBEDDED_LLAMA_SERVER" ]; then
-        printf "%s" "\$EMBEDDED_LLAMA_SERVER"
+    if [ -n "${EMBEDDED_LLAMA_SERVER}" ]; then
+      if [ -x "${EMBEDDED_LLAMA_SERVER}" ]; then
+        printf "%s" "${EMBEDDED_LLAMA_SERVER}"
         return 0
       fi
-      if [ -x "\$SCRIPT_DIR/\$EMBEDDED_LLAMA_SERVER" ]; then
-        printf "%s" "\$SCRIPT_DIR/\$EMBEDDED_LLAMA_SERVER"
+      if [ -x "${SCRIPT_DIR}/${EMBEDDED_LLAMA_SERVER}" ]; then
+        printf "%s" "${SCRIPT_DIR}/${EMBEDDED_LLAMA_SERVER}"
         return 0
       fi
     fi
-    cur="\$SCRIPT_DIR"
-    while [ "\$cur" != "/" ] && [ -n "\$cur" ]; do
-      for d in "\$cur"/llama-*; do
-        if [ -x "\$d/llama-server" ]; then
-          printf "%s" "\$d/llama-server"
+    cur="${SCRIPT_DIR}"
+    while [ "${cur}" != "/" ] && [ -n "${cur}" ]; do
+      for d in "${cur}"/llama-*; do
+        if [ -x "${d}/llama-server" ]; then
+          printf "%s" "${d}/llama-server"
           return 0
         fi
       done
-      cur="\$(dirname "\$cur")"
+      cur="$(dirname "${cur}")"
     done
     if command -v llama-server >/dev/null 2>&1; then
       command -v llama-server
@@ -340,31 +340,31 @@ fi
     return 1
   }
 
-  LLAMA_SERVER_RUNTIME="\$(find_llama_server || true)"
-  if [ -z "\$LLAMA_SERVER_RUNTIME" ]; then
+  LLAMA_SERVER_RUNTIME="$(find_llama_server || true)"
+  if [ -z "${LLAMA_SERVER_RUNTIME}" ]; then
     echo "Error: llama-server executable not found. Please build it or set the path."
     exit 1
   fi
 
   # Build alias flag from category if detected
   ALIAS_FLAG=""
-  if [ -n "\$CATEGORY_ALIAS" ]; then
-    ALIAS_FLAG="--alias \$CATEGORY_ALIAS"
+  if [ -n "${CATEGORY_ALIAS}" ]; then
+    ALIAS_FLAG="--alias ${CATEGORY_ALIAS}"
   fi
 
   # Pin to first 12 physical cores for performance
-  taskset -c 0-11 "\$LLAMA_SERVER_RUNTIME" -m "${abs_model}" \\
+  taskset -c 0-11 "${LLAMA_SERVER_RUNTIME}" -m "${abs_model}" \\
     --port ${PORT} \\
-    \${ALIAS_FLAG} \\
+    ${ALIAS_FLAG} \\
   -ngl 99 \\
   -fa on \\
-  --threads \${THREADS_ARG} \\
+  --threads ${THREADS_ARG} \\
   --batch-size 1024 \\
   --ubatch-size 256 \\
   --ctx-size 16384 \\
   --mlock \\
-  \${SAMPLING_FLAGS} \\
-  "\${EXTRA_ARGS[@]}" \\
+  ${SAMPLING_FLAGS} \\
+  "${EXTRA_ARGS[@]}" \\
   --api-key ${API_KEY}
 EOF
 

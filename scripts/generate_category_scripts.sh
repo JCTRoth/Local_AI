@@ -59,7 +59,7 @@ done
 CATEGORIES=("main_model" "autocomplete_model" "rerank_model")
 PORTS=(8080 8081 8082)
 
-GENERATOR="$SCRIPT_DIR/generate_start_scripts.sh"
+GENERATOR="$SCRIPT_DIR/.generate_start_scripts.sh"
 
 if [ ! -x "$GENERATOR" ] && [ ! -f "$GENERATOR" ]; then
   echo "Error: generator not found at $GENERATOR"

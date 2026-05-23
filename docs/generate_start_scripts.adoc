@@ -20,7 +20,7 @@ named `start_<safe-name>.sh`.
 
 == Key scripts
 
-=== Generator: scripts/generate_start_scripts.sh
+=== Generator: scripts/.generate_start_scripts.sh
 
 *Purpose*:: Scans a `--model-root` tree for `.gguf` files and emits `start_*.sh`
 start scripts into `--out-dir`.
@@ -104,12 +104,12 @@ bash starter_scripts/main_model/start_qwen3_5-9b-q6_k_.sh --stop   # stops serve
 
 * The wrapper keeps per-category ports fixed by design. To change the mapping
   edit `scripts/generate_category_scripts.sh` or call
-  `scripts/generate_start_scripts.sh` directly with a custom `--model-root`.
+  `scripts/.generate_start_scripts.sh` directly with a custom `--model-root`.
 
 == Files to review
 
 * `scripts/generate_category_scripts.sh`
-* `scripts/generate_start_scripts.sh`
+* `scripts/.generate_start_scripts.sh`
 * Example generated scripts: `starter_scripts/main_model/start_*.sh`, `starter_scripts/autocomplete_model/start_*.sh`, etc.
 
 ----
