@@ -19,9 +19,29 @@ Options:
   --max-workers N        Max workers for `hf download` (default: 8)
   --force-download       Pass `--force-download` to `hf download`
   --token TOKEN          HF token to pass via `--token`
+                         If omitted, the script prompts with `hf auth login`
+                         when no saved Hugging Face login is found.
   --dry-run              Print the commands instead of executing
   -h,--help              Show this help
 EOF
+}
+
+ensure_hf_login() {
+  if [ -n "$TOKEN" ]; then
+    return 0
+  fi
+
+  if hf auth whoami >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    echo "Hugging Face login required. Re-run in an interactive terminal or pass --token." >&2
+    exit 1
+  fi
+
+  echo "Hugging Face login required. Launching 'hf auth login'..."
+  hf auth login
 }
 
 # Defaults
@@ -81,6 +101,10 @@ if [ "${#repos[@]}" -eq 0 ]; then
   echo "No repo IDs provided." >&2
   usage
   exit 1
+fi
+
+if [ "$DRY_RUN" = false ]; then
+  ensure_hf_login
 fi
 
 mkdir -p "$LOCAL_DIR_ROOT"
