@@ -118,6 +118,13 @@ for i in "${!CATEGORIES[@]}"; do
     cmd+=("${FILTERED_EXTRA[@]}")
   fi
 
+  # Prefer repository-local llama-server if present (e.g. source/llama.cpp/build/bin/llama-server)
+  REPO_LLAMA="$REPO_ROOT/source/llama.cpp/build/bin/llama-server"
+  if [ -x "$REPO_LLAMA" ]; then
+    echo "Using repository-local llama-server: $REPO_LLAMA"
+    cmd+=(--llama-server "$REPO_LLAMA")
+  fi
+
   echo "Running: ${cmd[*]}"
   if ! "${cmd[@]}"; then
     echo "Warning: generator failed for category $cat_name"

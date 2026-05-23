@@ -157,115 +157,119 @@ for file in "${files_sorted[@]}"; do
   if [ -n "$TYP_P" ]; then TYP_P_ASSIGN="TYP_P_ARG=\"$TYP_P\""; else TYP_P_ASSIGN='TYP_P_ARG=""'; fi
   THREADS_ASSIGN="THREADS_ARG=\"$THREADS\""
 
-  cat >"$script" <<EOF
+  cat >"$script" <<'EOF'
 #!/bin/bash
 usage() {
-  cat <<USAGE
+  cat <<'USAGE'
 Usage: $0 [--help|-h] [--stop]
 
 Options:
   --help, -h   Show this help
-  --stop       Stop any running llama-server using port ${PORT}
+  --stop       Stop any running llama-server using port __PORT__
 If no option is provided the script starts the server in the foreground.
 USAGE
 }
 
-if [ "\${1-}" = "--help" ] || [ "\${1-}" = "-h" ]; then
+if [ "${1-}" = "--help" ] || [ "${1-}" = "-h" ]; then
   usage
   exit 0
 fi
 
-if [ "\${1-}" = "--stop" ]; then
-  echo "Stopping server on port ${PORT}..."
+if [ "${1-}" = "--stop" ]; then
+  echo "Stopping server on port __PORT__..."
   # Find processes that include the port flag for this server invocation
-  pids=\$(pgrep -f "llama-server .*--port ${PORT}" || true)
-  if [ -z "\$pids" ]; then
-    echo "No running process found for port ${PORT}"
+  pids=$(pgrep -f "llama-server .*--port __PORT__" || true)
+  if [ -z "$pids" ]; then
+    echo "No running process found for port __PORT__"
     exit 0
   fi
-  echo "Killing: \$pids"
-  echo "\$pids" | xargs -r kill
+  echo "Killing: $pids"
+  echo "$pids" | xargs -r kill
   exit 0
 fi
 
   # Determine category alias from current working directory (PWD).
   CANDIDATES=("autocomplete_model" "main_model" "rerank_model")
   CATEGORY_ALIAS=""
-  for c in "\${CANDIDATES[@]}"; do
-    if [[ "\$PWD" == *"/\$c"* ]] || [[ "\$(basename "\$PWD")" == "\$c" ]]; then
-      CATEGORY_ALIAS="\$c"
+  for c in "${CANDIDATES[@]}"; do
+    if [[ "$PWD" == *"/$c"* ]] || [[ "$(basename "$PWD")" == "$c" ]]; then
+      CATEGORY_ALIAS="$c"
       break
     fi
   done
 
-  if [ -n "\$CATEGORY_ALIAS" ]; then
-    echo "Detected category alias from PWD: \$CATEGORY_ALIAS"
+  if [ -n "$CATEGORY_ALIAS" ]; then
+    echo "Detected category alias from PWD: $CATEGORY_ALIAS"
     # Set shell alias for this category so you can invoke by category name
-    alias \$CATEGORY_ALIAS="\$0"
-    echo "Created alias: \$CATEGORY_ALIAS -> \$0"
+    alias $CATEGORY_ALIAS="$0"
+    echo "Created alias: $CATEGORY_ALIAS -> $0"
   else
-    echo "Warning: current working directory does not contain any of: \${CANDIDATES[*]}. CATEGORY_ALIAS will be empty." >&2
+    echo "Warning: current working directory does not contain any of: ${CANDIDATES[*]}. CATEGORY_ALIAS will be empty." >&2
     CATEGORY_ALIAS=""
   fi
 
   # Inject generator-provided sampling defaults (values expanded at generation time)
-  $TEMP_ASSIGN
-  $TOP_K_ASSIGN
-  $TOP_P_ASSIGN
-  $MIN_P_ASSIGN
-  $SAMPLERS_ASSIGN
-  $N_PREDICT_ASSIGN
-  $TYP_P_ASSIGN
+EOF
 
-  # Pre-populate THREADS_ARG from generator (--threads passed to generator)
-  $THREADS_ASSIGN
+  {
+    printf "%s\n" "$TEMP_ASSIGN"
+    printf "%s\n" "$TOP_K_ASSIGN"
+    printf "%s\n" "$TOP_P_ASSIGN"
+    printf "%s\n" "$MIN_P_ASSIGN"
+    printf "%s\n" "$SAMPLERS_ASSIGN"
+    printf "%s\n" "$N_PREDICT_ASSIGN"
+    printf "%s\n" "$TYP_P_ASSIGN"
+    printf "%s\n" "$THREADS_ASSIGN"
+  } >>"$script"
+
+  cat >>"$script" <<'EOF'
 
   EXTRA_ARGS=()
-  while [ "\$#" -gt 0 ]; do
-    case "\$1" in
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
       --threads)
-        THREADS_ARG="\$2"; shift 2;;
+        THREADS_ARG="$2"; shift 2;;
       --temp|--temperature)
-        TEMP_ARG="\$2"; shift 2;;
+        TEMP_ARG="$2"; shift 2;;
       --top-k)
-        TOP_K_ARG="\$2"; shift 2;;
+        TOP_K_ARG="$2"; shift 2;;
       --top-p)
-        TOP_P_ARG="\$2"; shift 2;;
+        TOP_P_ARG="$2"; shift 2;;
       --min-p)
-        MIN_P_ARG="\$2"; shift 2;;
+        MIN_P_ARG="$2"; shift 2;;
       --samplers)
-        SAMPLERS_ARG="\$2"; shift 2;;
+        SAMPLERS_ARG="$2"; shift 2;;
       --n-predict)
-        N_PREDICT_ARG="\$2"; shift 2;;
+        N_PREDICT_ARG="$2"; shift 2;;
       --typ_p)
-        TYP_P_ARG="\$2"; shift 2;;
+        TYP_P_ARG="$2"; shift 2;;
       --xtc_*)
-        EXTRA_ARGS+=("\$1" "\$2"); shift 2;;
+        EXTRA_ARGS+=("$1" "$2"); shift 2;;
       --*)
-        if [ -n "\$2" ] && [ "\${2:0:1}" != "-" ]; then
-          EXTRA_ARGS+=("\$1" "\$2"); shift 2
+        if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+          EXTRA_ARGS+=("$1" "$2"); shift 2
         else
-          EXTRA_ARGS+=("\$1"); shift
+          EXTRA_ARGS+=("$1"); shift
         fi
         ;;
       *)
-        EXTRA_ARGS+=("\$1"); shift;;
+        EXTRA_ARGS+=("$1"); shift;;
     esac
   done
 
-  if [ -z "\$THREADS_ARG" ]; then
-    THREADS_ARG=\$(lscpu -p | grep -v '^#' | sort -u -t, -k 2,4 | wc -l)
+  if [ -z "$THREADS_ARG" ]; then
+    THREADS_ARG=$(lscpu -p | grep -v '^#' | sort -u -t, -k 2,4 | wc -l)
   fi
 
   # Build sampling flags from variables
   SAMPLING_FLAGS=""
-  if [ -n "\$TEMP_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --temp \$TEMP_ARG"; fi
-  if [ -n "\$TOP_K_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --top-k \$TOP_K_ARG"; fi
-  if [ -n "\$TOP_P_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --top-p \$TOP_P_ARG"; fi
-  if [ -n "\$MIN_P_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --min-p \$MIN_P_ARG"; fi
-  if [ -n "\$SAMPLERS_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --samplers '\$SAMPLERS_ARG'"; fi
-  if [ -n "\$N_PREDICT_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --n-predict \$N_PREDICT_ARG"; fi
-  if [ -n "\$TYP_P_ARG" ]; then SAMPLING_FLAGS="\$SAMPLING_FLAGS --typ_p \$TYP_P_ARG"; fi
+  if [ -n "$TEMP_ARG" ]; then SAMPLING_FLAGS="$SAMPLING_FLAGS --temp $TEMP_ARG"; fi
+  if [ -n "$TOP_K_ARG" ]; then SAMPLING_FLAGS="$SAMPLING_FLAGS --top-k $TOP_K_ARG"; fi
+  if [ -n "$TOP_P_ARG" ]; then SAMPLING_FLAGS="$SAMPLING_FLAGS --top-p $TOP_P_ARG"; fi
+  if [ -n "$MIN_P_ARG" ]; then SAMPLING_FLAGS="$SAMPLING_FLAGS --min-p $MIN_P_ARG"; fi
+  if [ -n "$SAMPLERS_ARG" ]; then SAMPLING_FLAGS="$SAMPLING_FLAGS --samplers '$SAMPLERS_ARG'"; fi
+  if [ -n "$N_PREDICT_ARG" ]; then SAMPLING_FLAGS="$SAMPLING_FLAGS --n-predict $N_PREDICT_ARG"; fi
+  if [ -n "$TYP_P_ARG" ]; then SAMPLING_FLAGS="$SAMPLING_FLAGS --typ_p $TYP_P_ARG"; fi
 
   # First, check the common admin port 127.0.0.1:8080 (e.g. Continue/dashboard or proxy).
   # If a service responds there, abort to avoid starting/loading models while another
@@ -287,30 +291,35 @@ fi
     fi
   fi
 
-  # Check if an HTTP server is already responding on this script's target port (127.0.0.1:${PORT}).
+  # Check if an HTTP server is already responding on this script's target port (127.0.0.1:__PORT__).
   # If so, do not start the model to avoid accidental double-binding or conflicts.
   if command -v curl >/dev/null 2>&1; then
-    if curl -s --connect-timeout 2 "http://127.0.0.1:${PORT}" >/dev/null 2>&1; then
-      echo "Error: HTTP server detected at http://127.0.0.1:${PORT}. Not starting the model to avoid conflicts."
+    if curl -s --connect-timeout 2 "http://127.0.0.1:__PORT__" >/dev/null 2>&1; then
+      echo "Error: HTTP server detected at http://127.0.0.1:__PORT__. Not starting the model to avoid conflicts."
       exit 1
     fi
   elif command -v nc >/dev/null 2>&1; then
-    if nc -z 127.0.0.1 ${PORT} >/dev/null 2>&1; then
-      echo "Error: Port ${PORT} is already in use (listening). Not starting the model."
+    if nc -z 127.0.0.1 __PORT__ >/dev/null 2>&1; then
+      echo "Error: Port __PORT__ is already in use (listening). Not starting the model."
       exit 1
     fi
   else
     # Fallback using bash /dev/tcp
-    if (echo > /dev/tcp/127.0.0.1/${PORT}) >/dev/null 2>&1; then
-      echo "Error: Port ${PORT} appears to be in use. Not starting the model."
+    if (echo > /dev/tcp/127.0.0.1/__PORT__) >/dev/null 2>&1; then
+      echo "Error: Port __PORT__ appears to be in use. Not starting the model."
       exit 1
     fi
   fi
 
   # Determine llama-server at runtime so the script can be invoked from anywhere.
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  EMBEDDED_LLAMA_SERVER="${LLAMA_SERVER_ABS}"
-  MODEL_PATH="${abs_model}"
+EOF
+
+  # Embed the detected LLAMA server path and model path (expanded at generation time)
+  printf 'EMBEDDED_LLAMA_SERVER="%s"\n' "$LLAMA_SERVER_ABS" >>"$script"
+  printf 'MODEL_PATH="%s"\n' "$abs_model" >>"$script"
+
+  cat >>"$script" <<'EOF'
 
   find_llama_server() {
     if [ -n "${EMBEDDED_LLAMA_SERVER}" ]; then
@@ -353,20 +362,23 @@ fi
   fi
 
   # Pin to first 12 physical cores for performance
-  taskset -c 0-11 "${LLAMA_SERVER_RUNTIME}" -m "${abs_model}" \\
-    --port ${PORT} \\
-    ${ALIAS_FLAG} \\
-  -ngl 99 \\
-  -fa on \\
-  --threads ${THREADS_ARG} \\
-  --batch-size 1024 \\
-  --ubatch-size 256 \\
-  --ctx-size 16384 \\
-  --mlock \\
-  ${SAMPLING_FLAGS} \\
-  "${EXTRA_ARGS[@]}" \\
-  --api-key ${API_KEY}
+  taskset -c 0-11 "${LLAMA_SERVER_RUNTIME}" -m "${MODEL_PATH}" \
+    --port __PORT__ \
+    ${ALIAS_FLAG} \
+  -ngl 99 \
+  -fa on \
+  --threads ${THREADS_ARG} \
+  --batch-size 1024 \
+  --ubatch-size 256 \
+  --ctx-size 16384 \
+  --mlock \
+  ${SAMPLING_FLAGS} \
+  "${EXTRA_ARGS[@]}" \
+  --api-key __API_KEY__
 EOF
+
+  # Replace port and api key placeholders with the generation-time values
+  sed -i "s@__PORT__@${PORT}@g; s@__API_KEY__@${API_KEY}@g" "$script"
 
   chmod +x "$script"
   created+=("$script")
