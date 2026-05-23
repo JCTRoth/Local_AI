@@ -106,3 +106,66 @@ Die Telemetrie-Quellen werden in folgender Reihenfolge geprüft:
 3. `xbutil`
 
 Falls keine dieser Quellen verfügbar ist, wird der Start verweigert, es sei denn, das Flag `--skip-npu-usage-check` wird übergeben.
+
+== OpenAI-kompatibler Python-Server
+
+Zusätzlich zum C++-basierten `ryzenai-server` gibt es jetzt einen eigenständigen FastAPI-Server in `openai_npu_server.py`. Er verwendet `onnxruntime_genai` direkt und exponiert folgende Endpunkte:
+
+* `GET /health`
+* `GET /v1/models`
+* `POST /v1/chat/completions`
+
+=== Setup
+
+Der Setup-Schritt installiert die Web-Abhängigkeiten in ein lokales Verzeichnis `.python-packages`, verwendet aber weiterhin den Python-Interpreter aus `/opt/ryzen_ai`, damit die AMD-spezifischen Python-Pakete und nativen Erweiterungen unverändert genutzt werden.
+
+Wenn kein `RYZEN_AI_ROOT` gesetzt ist, bevorzugen die Skripte automatisch `~/ryzen_ai_env`, falls dieses Verzeichnis existiert. Auf diesem Host ist das die neuere Laufzeitumgebung mit `VitisAIExecutionProvider`; andernfalls wird auf `/opt/ryzen_ai` zurückgefallen.
+
+[source,bash]
+----
+./setup_openai_npu_server.sh
+----
+
+=== Modell-Ladecheck
+
+Vor dem eigentlichen Start kann die Runtime ohne HTTP-Server geprüft werden:
+
+[source,bash]
+----
+./run_openai_npu_server.sh \
+  --model-path ./models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K \
+  --check-only
+----
+
+Wenn die lokale Ryzen-AI-/OGA-Version nicht zur Modell-Konfiguration passt, liefert der Check einen expliziten Fehler anstatt eines unklaren Stack-Traces.
+
+=== Server starten
+
+[source,bash]
+----
+./run_openai_npu_server.sh \
+  --model-path ./models/Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K \
+  --model-name qwen2.5-coder-0.5b-npu \
+  --host 127.0.0.1 \
+  --port 8080
+----
+
+=== Testen
+
+[source,bash]
+----
+curl -s http://127.0.0.1:8080/v1/models
+
+curl -s http://127.0.0.1:8080/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen2.5-coder-0.5b-npu",
+    "messages": [{"role": "user", "content": "Write a Python function to sort a list."}],
+    "max_tokens": 128,
+    "stream": false
+  }'
+----
+
+=== Hinweis zur Host-Kompatibilität
+
+Der Python-Server versucht zuerst die im Modell hinterlegte Provider-Konfiguration zu verwenden. Falls die lokale OGA-Build nur `VitisAI` akzeptiert, versucht er zusätzlich einen kompatiblen Provider-Override. Schlägt das Laden danach immer noch mit `com.ryzenai`-Custom-Ops fehl, liegt das Problem unterhalb des Servers in einer Ryzen-AI-/Modell-Versionsabweichung.
