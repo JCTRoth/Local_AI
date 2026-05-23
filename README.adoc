@@ -3,11 +3,11 @@
 :source-highlighter: highlight.js
 :icons: font
 
-This guide covers the installation, model acquisition, and execution of local LLMs using the Ryzen AI NPU launcher and the `claw-code` tool on Ubuntu, optimized for hardware like the Ryzen AI 9 HX-370 on my Ubuntu based system.
+This guide covers the installation, model acquisition, and execution of local LLMs using the Ryzen AI NPU launcher and the `claw-code` tool on Ubuntu, optimized for hardware like the Ryzen AI 9 HX-370 on my Ubuntu-based system.
 
-When using the scripts in the script folder and the from there generated starter scripts, you are able to start every model your PC can handle and can try out different models without changing the configuration of the tools.
+When using the scripts in the script folder and the generated starter scripts, you are able to start every model your PC can handle and can try out different models without changing the configuration of the tools.
 
-No matter wich script you now start form the script folder, continue will directly start to use it.
+No matter which script you now start from the script folder, Continue will directly start to use it.
 
 
 
@@ -41,9 +41,6 @@ To download gated models or use private settings, authenticate with your token:
 huggingface-cli login
 ----
 
-/scripts/download_models.sh unsloth/Phi-4-mini-instruct-GGUF
-----
-
 Or use the Hugging Face CLI directly to specify models and output directories:
 
 
@@ -51,7 +48,7 @@ Or use the Hugging Face CLI directly to specify models and output directories:
 
 We use GGUF formatted models for compatibility with `llama.cpp`.
 
-You can click "Copy modle name to clipboard" and download it with the scripts/download_models.sh script, or use the Hugging Face CLI directly:
+You can click "Copy model name to clipboard" and download it with the scripts/download_models.sh script, or use the Hugging Face CLI directly:
 
 [source,bash]
 ----
@@ -68,7 +65,7 @@ or use the download_models.sh script to donwload complete folders with multiple 
 
 === Good sources for more models
 
-Here are some modles that you can use on a local PC, less b(billion parameters) means smaller model size::
+Here are some models that you can use on a local PC, less b(billion parameters) means smaller model size::
 
 (08.May.2026)
 
@@ -100,7 +97,7 @@ https://huggingface.co/bartowski
 
 https://huggingface.co/BAAI
 
-Very intressting MAMBA type models that not use transformers but still have good performance:
+Very interesting MAMBA type models that do not use transformers but still have good performance:
 https://huggingface.co/ibm-granite
 
 https://www.ibm.com/think/topics/mamba-model
@@ -110,7 +107,7 @@ https://www.ibm.com/think/topics/mamba-model
 TBD
 
 
-NPU extras
+NPU Extras
 
 NPU reranking is not wired into this repository yet.
 
@@ -118,8 +115,10 @@ NPU reranking is not wired into this repository yet.
 
 TODO
 
-bash ./starter_scripts/autocomplete_model/
-start_qwen2_5-coder-0_5b-instruct_rai_1_7_1_npu_4k.sh
+[source,bash]
+----
+bash ./starter_scripts/autocomplete_model/start_qwen2_5-coder-0_5b-instruct_rai_1_7_1_npu_4k.sh
+----
 
 === CLI Test Mode
 Run a quick test to ensure the Ryzen AI NPU stack is working on your chip.
@@ -192,9 +191,9 @@ Run a prompt
 
 Add the `export` lines to your `.bashrc` or `.zshrc` to make them persistent across sessions.
 
-== Continue setup
+== Continue Setup
 
-Continue is a VScode extentation that provides a Copilot like experience. I recoment to use for the main AI a API Key form open router and for the autocomplete IBMs Granite or smaal Qwen models.
+Continue is a VSCode extension that provides a Copilot-like experience. I recommend using an API key from OpenRouter for the main AI and IBM's Granite or small Qwen models for autocomplete.
 
 For the autocomplete slot, use the bundled Ryzen AI ONNX model folder with the NPU launcher. The autocomplete wrapper in `starter_scripts/autocomplete_model` starts the included model on port `8081`.
 
@@ -289,11 +288,9 @@ mcpServers:
 
 Steps to follow:
 
-Kernel 7.1 >
-
-Install Ryzen AI Driver
-
-Install FastFlowLM -> Ryzen AI Server
+1. Kernel 7.1 or higher
+2. Install Ryzen AI Driver
+3. Install FastFlowLM -> Ryzen AI Server
 
 
 Setting up the NPU for Ryzen AI involves several steps, including installing the necessary drivers, configuring the environment, and verifying the installation.
@@ -302,10 +299,10 @@ I recommend to have at least Linux Kernel 7.1 since this will make everything a 
 
 https://www.techpowerup.com/347409/linux-7-1-kernel-will-enhance-support-for-amd-ryzen-ai-npus
 
-Than go there create an Account and download the latest drivers and tools for your system:
+Then go there, create an account, and download the latest drivers and tools for your system:
 https://ryzenai.docs.amd.com/en/latest/linux.html
 
-I tryed a lot to install everything by the Git Repos but gave up after trying it on Ubuntu and Fedora the installer from the AMD website was the only thing that worked for me.
+I tried a lot to install everything from the Git repos but gave up after trying it on Ubuntu and Fedora. The installer from the AMD website was the only thing that worked for me.
 
 
 The `starter_scripts/autocomplete_model` wrapper starts the bundled Ryzen AI autocomplete model.
@@ -324,7 +321,7 @@ For Ryzen AI / ONNX GenAI model folders use `./npu/run_model.sh` directly.
 
 Important: AMD's Linux documentation currently describes an LLM benchmark/deployment flow, not a built-in port-based API server. If `ryzenai-server` is not installed, you must provide a backend command explicitly with `--backend-command` or `LOCAL_AI_NPU_BACKEND_COMMAND`.
 
-Install 
+=== Installation
 
 [source,bash]
 ----
@@ -346,7 +343,7 @@ https://ryzenai.docs.amd.com/en/latest/linux.html
 ./npu/run_model.sh stop --port 8080
 ----
 
-Find a model that is optimized for AMD hardware, unsing the ONNX format, and download it to your local machine. You can use the Hugging Face CLI or other tools to find and download compatible models.
+Find a model that is optimized for AMD hardware, using the ONNX format, and download it to your local machine. You can use the Hugging Face CLI or other tools to find and download compatible models.
 
 https://huggingface.co/models?other=ryzenai
 
@@ -357,7 +354,8 @@ Convert models to ONNX format:
 https://github.com/onnx/onnx/blob/main/docs/VersionConverter.md
 
 
-Install Go-Lang than:
+Install Go-Lang, then:
+[source,bash]
 ----
 go install github.com/lemonade-command/lemonade@latest
 ----
