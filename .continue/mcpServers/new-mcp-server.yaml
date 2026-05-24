@@ -1,0 +1,32 @@
+name: cortex-scout
+version: 1.0.0
+schema: v1
+
+mcpServers:
+  - name: cortex-scout
+    command: env
+    args:
+      - RUST_LOG=warn
+      - SEARCH_ENGINES=google,bing,duckduckgo,brave
+      - LANCEDB_URI=/home/jonas/git/cortex-scout/lancedb
+      - HTTP_TIMEOUT_SECS=30
+      - MAX_CONTENT_CHARS=10000
+      - /home/jonas/git/cortex-scout/mcp-server/target/release/cortex-scout-mcp
+  - name: chrome-devtools
+    command: npx
+    args:
+    - --chrome
+    - /usr/bin/chromium-browser
+    - chrome-devtools-mcp
+
+  - name: memory
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-memory"
+  - name: filesystem
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - "."

@@ -222,8 +222,11 @@ Chrome DevTools
 
 https://github.com/cortex-works/cortex-scout
 
-...
 
+
+````
+sudo npm install -g chrome-devtools-mcp
+````
 
 === More MCP Servers
 
@@ -256,14 +259,21 @@ models:
       - apply
       - subagent
 
-  - name: Qwen NPU Autocomplete
+  - name: Autocomplete
     provider: openai
-    model: Qwen2.5-Coder-0.5B-Instruct_rai_1.7.1_npu_4K
+    model: autocomplete_model
     apiBase: http://127.0.0.1:8081/v1
     apiKey: sk-local-coding
     roles:
       - autocomplete
 
+  - name: Reranker_Model
+    provider: openai
+    model: reranker_model
+    apiBase: http://127.0.0.1:8082/v1
+    apiKey: sk-local-coding
+    roles:
+      - rerank
 ----
 
 [source,yaml]

@@ -16,6 +16,7 @@ Options:
                                  If not provided the script will search for a folder
                                  starting with `llama-` in the project root and use
                                  its `llama-server` binary if found.
+  --ctx-size N         Default context size to inject into generated scripts
   --max-depth N        Max search depth for find (default: 3)
   --force              Overwrite existing scripts
   --dry-run            Print actions but don't write files
@@ -45,6 +46,10 @@ SAMPLERS=""
 N_PREDICT=""
 TYP_P=""
 
+# Context size default (can be overridden with --ctx-size)
+CTX_SIZE=16384
+CTX_SIZE_SET=false
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --model-root) MODEL_ROOT="$2"; shift 2;;
@@ -54,6 +59,7 @@ while [ "$#" -gt 0 ]; do
     --api-key) API_KEY="$2"; shift 2;;
     --llama-server) LLAMA_SERVER="$2"; shift 2;;
     --max-depth) MAX_DEPTH="$2"; shift 2;;
+    --ctx-size) CTX_SIZE="$2"; CTX_SIZE_SET=true; shift 2;;
       --temp) TEMP="$2"; shift 2;;
       --top-k) TOP_K="$2"; shift 2;;
       --top-p) TOP_P="$2"; shift 2;;
@@ -188,25 +194,23 @@ if [ "${1-}" = "--stop" ]; then
   exit 0
 fi
 
-  # Determine category alias from current working directory (PWD).
-  CANDIDATES=("autocomplete_model" "main_model" "rerank_model")
-  CATEGORY_ALIAS=""
-  for c in "${CANDIDATES[@]}"; do
-    if [[ "$PWD" == *"/$c"* ]] || [[ "$(basename "$PWD")" == "$c" ]]; then
-      CATEGORY_ALIAS="$c"
-      break
-    fi
-  done
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-  if [ -n "$CATEGORY_ALIAS" ]; then
-    echo "Detected category alias from PWD: $CATEGORY_ALIAS"
-    # Set shell alias for this category so you can invoke by category name
-    alias $CATEGORY_ALIAS="$0"
-    echo "Created alias: $CATEGORY_ALIAS -> $0"
-  else
-    echo "Warning: current working directory does not contain any of: ${CANDIDATES[*]}. CATEGORY_ALIAS will be empty." >&2
-    CATEGORY_ALIAS=""
-  fi
+  # Determine category alias from the wrapper's own directory.
+  CANDIDATES=("autocomplete_model" "main_model" "rerank_model")
+  CATEGORY_ALIAS="$(basename "$SCRIPT_DIR")"
+  case "$CATEGORY_ALIAS" in
+    autocomplete_model|main_model|rerank_model)
+      echo "Detected category alias from script directory: $CATEGORY_ALIAS"
+      # Set shell alias for this category so you can invoke by category name
+      alias "$CATEGORY_ALIAS"="$0"
+      echo "Created alias: $CATEGORY_ALIAS -> $0"
+      ;;
+    *)
+      echo "Warning: script directory does not contain any of: ${CANDIDATES[*]}. CATEGORY_ALIAS will be empty." >&2
+      CATEGORY_ALIAS=""
+      ;;
+  esac
 
   # Inject generator-provided sampling defaults (values expanded at generation time)
 EOF
@@ -312,7 +316,6 @@ EOF
   fi
 
   # Determine llama-server at runtime so the script can be invoked from anywhere.
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EOF
 
   # Embed the detected LLAMA server path and model path (expanded at generation time)

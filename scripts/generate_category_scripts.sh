@@ -132,6 +132,7 @@ for i in "${!CATEGORIES[@]}"; do
   fi
   echo "Done for $cat_name"
   echo
+
 done
 
 echo "All done. Generated scripts (if not dry-run) are in: $OUT_DIR"

@@ -40,7 +40,7 @@ run_*.sh
 # Variable llama program folder
 /llama-*/
 
-.continue/
+# .continue/
 starter_scripts/
 source/
 models/
