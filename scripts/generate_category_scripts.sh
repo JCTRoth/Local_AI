@@ -57,7 +57,10 @@ while [ "${#}" -gt 0 ]; do
 done
 
 CATEGORIES=("main_model" "autocomplete_model" "rerank_model")
+# Port mapping:  main_model=8080, autocomplete_model=8081, rerank_model=8082
 PORTS=(8080 8081 8082)
+# Context mapping: main_model needs a larger window for long prompts.
+CTX_SIZES=(32768 16384 16384)
 
 GENERATOR="$SCRIPT_DIR/.generate_start_scripts.sh"
 
@@ -69,6 +72,7 @@ fi
 for i in "${!CATEGORIES[@]}"; do
   cat_name="${CATEGORIES[$i]}"
   port="${PORTS[$i]}"
+  ctx_size="${CTX_SIZES[$i]}"
   model_root="$MODELS_ROOT/$cat_name"
 
   if [ ! -d "$model_root" ]; then
@@ -85,10 +89,11 @@ for i in "${!CATEGORIES[@]}"; do
   echo "  Model root: $model_root"
   echo "  Output folder: $CATEGORY_OUT_DIR"
   echo "  Port: $port"
+  echo "  Context size: $ctx_size"
   echo "  Category Alias: $cat_name"
   echo "════════════════════════════════════════════════════════════"
 
-  cmd=(bash "$GENERATOR" --model-root "$model_root" --out-dir "$CATEGORY_OUT_DIR" --port-start "$port" --threads "$THREADS" --api-key "$API_KEY" --max-depth "$MAX_DEPTH")
+  cmd=(bash "$GENERATOR" --model-root "$model_root" --out-dir "$CATEGORY_OUT_DIR" --port-start "$port" --ctx-size "$ctx_size" --threads "$THREADS" --api-key "$API_KEY" --max-depth "$MAX_DEPTH")
   if [ "$FORCE" = true ]; then
     cmd+=(--force)
   fi

@@ -209,7 +209,11 @@ Add the `export` lines to your `.bashrc` or `.zshrc` to make them persistent acr
 
 Continue is a VSCode extension that provides a Copilot-like experience. I recommend using an API key from OpenRouter for the main AI and IBM's Granite or small Qwen models for autocomplete.
 
-For the autocomplete slot, use the bundled Ryzen AI ONNX model folder with the NPU launcher. The autocomplete wrapper in `starter_scripts/autocomplete_model` starts the included model on port `8081`.
+The generated `main_model` wrappers now use a 32768-token context window so
+requests above 16K tokens do not fail immediately; the autocomplete and
+rerank wrappers keep their smaller defaults.
+
+For the autocomplete slot, use the bundled Ryzen AI ONNX model folder with the NPU launcher. The autocomplete wrapper in `starter_scripts/autocomplete_model` starts the included model on port `8080`.
 
 [source,bash]
 ----
@@ -248,7 +252,7 @@ schema: v1
 
 
 models:
-  - name: Granite Chat
+  - name: Main_Model
     provider: openai
     model: main_model
     apiBase: http://127.0.0.1:8080/v1
@@ -259,7 +263,7 @@ models:
       - apply
       - subagent
 
-  - name: Autocomplete
+  - name: Autocomplete_Model
     provider: openai
     model: autocomplete_model
     apiBase: http://127.0.0.1:8081/v1

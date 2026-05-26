@@ -51,6 +51,10 @@ with a fixed port mapping:
 * `autocomplete_model` → `8081`
 * `rerank_model` → `8082`
 
+The wrapper also uses category-specific context windows: `main_model` is
+generated with `--ctx-size 32768`, while `autocomplete_model` and
+`rerank_model` stay at `--ctx-size 16384`.
+
 *Wrapper options*:: `--models-root`, `--out-dir`, `--threads`, `--api-key`,
 `--no-force`, `--dry-run`, `--max-depth`.
 
