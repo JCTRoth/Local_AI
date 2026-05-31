@@ -52,8 +52,11 @@ with a fixed port mapping:
 * `rerank_model` → `8082`
 
 The wrapper also uses category-specific context windows: `main_model` is
-generated with `--ctx-size 32768`, while `autocomplete_model` and
-`rerank_model` stay at `--ctx-size 16384`.
+generated with `--ctx-size 32768`, `autocomplete_model` uses `--ctx-size 4096`,
+and `rerank_model` stays at `--ctx-size 16384`.
+
+The generated launchers now honor the injected context size instead of
+hardcoding a single value.
 
 *Wrapper options*:: `--models-root`, `--out-dir`, `--threads`, `--api-key`,
 `--no-force`, `--dry-run`, `--max-depth`.

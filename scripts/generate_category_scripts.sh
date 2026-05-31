@@ -59,8 +59,9 @@ done
 CATEGORIES=("main_model" "autocomplete_model" "rerank_model")
 # Port mapping:  main_model=8080, autocomplete_model=8081, rerank_model=8082
 PORTS=(8080 8081 8082)
-# Context mapping: main_model needs a larger window for long prompts.
-CTX_SIZES=(32768 16384 16384)
+# Context mapping: main_model needs a larger window for long prompts;
+# autocomplete stays smaller for faster FIM requests.
+CTX_SIZES=(32768 4096 16384)
 
 GENERATOR="$SCRIPT_DIR/.generate_start_scripts.sh"
 

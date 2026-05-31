@@ -373,7 +373,7 @@ EOF
   --threads ${THREADS_ARG} \
   --batch-size 1024 \
   --ubatch-size 256 \
-  --ctx-size 16384 \
+  --ctx-size __CTX_SIZE__ \
   --mlock \
   ${SAMPLING_FLAGS} \
   "${EXTRA_ARGS[@]}" \
@@ -381,7 +381,7 @@ EOF
 EOF
 
   # Replace port and api key placeholders with the generation-time values
-  sed -i "s@__PORT__@${PORT}@g; s@__API_KEY__@${API_KEY}@g" "$script"
+  sed -i "s@__PORT__@${PORT}@g; s@__API_KEY__@${API_KEY}@g; s@__CTX_SIZE__@${CTX_SIZE}@g" "$script"
 
   chmod +x "$script"
   created+=("$script")
