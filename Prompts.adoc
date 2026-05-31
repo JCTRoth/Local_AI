@@ -1,0 +1,2 @@
+Git: Check out the uncommited changes than write a commit message from them.
+

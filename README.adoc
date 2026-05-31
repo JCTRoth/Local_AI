@@ -222,25 +222,38 @@ bash ./starter_scripts/autocomplete_model/start_qwen2_5-coder-0_5b-instruct_rai_
 
 === Local MCP Server's
 
-Chrome DevTools
+Chrome DevTools MCP Server - Full access to everything in the browser
 
-https://github.com/cortex-works/cortex-scout
+Docker MCP Toolkit
 
+Cortex-Scout - Search and Web Extraction Engine for AI Agents
 
+https://github.com/googleapis/mcp-toolbox - Databases
+
+Microsoft Learn MCP: Provides live access to official Microsoft documentation and SDKs.
+
+Azure / Azure DevOps: Specialized servers for querying cloud resources, pipelines, and work items.
+
+Playwright: Often built-in or easily added to provide browser automation, allowing Copilot to navigate pages and take screenshots for context.
+
+=== Example installation
 
 ````
 sudo npm install -g chrome-devtools-mcp
 ````
 
-=== More MCP Servers
+=== VS Code Copilot MCP Kit
 
-Azure / Azure DevOps: Specialized servers for querying cloud resources, pipelines, and work items.
+A self-contained Copilot MCP kit now lives in `mcpServers-copilot/`.
 
-Microsoft Learn MCP: Provides live access to official Microsoft documentation and SDKs.
+Run a safe preview first:
 
-Playwright: Often built-in or easily added to provide browser automation, allowing Copilot to navigate pages and take screenshots for context.
+[source,bash]
+----
+./mcpServers-copilot/install.sh --dry-run
+----
 
-GitHub MCP Server: The primary built-in server that allows Copilot to manage issues, pull requests, and repository data directly from chat.
+Then run the real installer from the workspace root when you want to install the client-side prerequisites and copy the tracked config files into `.vscode/mcp.json` and `tools.yaml`.
 
 === Continue Configuration
 

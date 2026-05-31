@@ -1,0 +1,20 @@
+# Google MCP Toolbox (mcp-toolbox) configuration
+# Docs: https://github.com/googleapis/mcp-toolbox
+#
+# Replace with your actual database connection details.
+# Supported: postgres, mysql, spanner, alloydb, cloudsql, etc.
+
+tools:
+  my-postgres-db:
+    kind: postgres
+    source: postgresql://USER:PASSWORD@localhost:5432/DATABASE
+
+  # Example: AlloyDB
+  # my-alloydb:
+  #   kind: alloydb
+  #   source: alloydb://projects/PROJECT/locations/REGION/clusters/CLUSTER/instances/INSTANCE/databases/DATABASE?user=USER&password=PASSWORD
+
+  # Example: Cloud SQL (PostgreSQL)
+  # my-cloudsql:
+  #   kind: cloudsql-postgres
+  #   source: cloudsql://USER:PASSWORD@PROJECT:REGION:INSTANCE/DATABASE

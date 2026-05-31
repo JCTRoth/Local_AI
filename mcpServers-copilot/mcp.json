@@ -1,0 +1,31 @@
+{
+  "servers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--autoConnect"]
+    },
+    "docker-mcp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["mcp", "gateway", "run", "--profile", "default"]
+    },
+    "google-toolbox": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@toolbox-sdk/server", "--config", "tools.yaml"]
+    },
+    "kubernetes": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "kubectl-mcp-server"],
+      "env": {
+        "KUBECONFIG": "${env:HOME}/.kube/config"
+      }
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    }
+  }
+}
